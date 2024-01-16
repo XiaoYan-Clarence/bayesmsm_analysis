@@ -1,0 +1,315 @@
+---
+title: "Causal analysis with time-varying treatment (continuous Y)"
+format: html
+editor: visual
+---
+
+
+## Causal analysis for time-dependent treatment/exposure with longtiudinal observaitonal data in R
+
+This code is from Kuan Liu's "R Tutorials - Introduction to causal inference and statistical methods for causal analysis in health services and outcome research" (<https://kuan-liu.github.io/causal_Quarto/section3.html>), with special acknowledgement to Yutong Lu who developed the following code.
+
+## 3.1 Simulated observational data with a time-dependent treatment
+
+The simulated dataset 1000 patients and 3 visits (2 of which patients were assigned a treatment) y, an end-of-study continuous outcome z, a binary treatment w1 and w2 are two baseline covariates (one continuous and one binary, mimicking age and sex) L1 and L2 are two time-dependent covariates (also one continuous and one binary) no missing data
+
+The simulated DAG
+
+
+```{r}
+library(DiagrammeR)
+    grViz("
+    digraph causal {
+    # Nodes
+    node [shape=plaintext]
+    W [label = 'w1, w2']
+    L1 [label = 'L11, L21']
+    Z1 [label = 'Z1']
+    L2 [label = 'L12, L22']
+    Z2 [label = 'Z2']
+    Y [label = 'Y']
+    
+    # Edges
+    edge [color=black, arrowhead=vee]
+    rankdir = LR
+    W->L1
+    W->Z1
+    W->L2
+    W->Z2
+    W->Y
+    L1->Z1
+    L1->L2
+    L1->Z2
+    L1->Y
+    Z1->L2
+    Z1->Z2
+    Z1->Y
+    L2->Z2
+    L2->Y
+    Z2->Y
+    
+    # Graph
+    graph [overlap=true, fontsize=14]
+    }")
+```
+
+
+You can add options to executable code like this
+
+
+```{r}
+library(tidyverse)
+library(DT)
+options(scipen = 999)
+
+causaldata <- read.csv("../Data/continuous_outcome_data.csv", header = TRUE, fileEncoding="UTF-8-BOM")
+
+# Change a_1, a_2 to Z_1, Z_2:
+names(causaldata)[names(causaldata) == "a_1"] <- "Z_1"
+names(causaldata)[names(causaldata) == "a_2"] <- "Z_2"
+
+# look at the data;
+datatable(causaldata,
+          rownames = FALSE,
+          options = list(dom = 't')) %>%
+  formatRound(columns=c('w2', 'L2_1', 'L2_2', 'y'), digits=2)
+```
+
+```{r}
+# frequency counts by treatment combinations;
+table(causaldata$Z_1, causaldata$Z_2)
+```
+
+
+## 3.2 Implementing marginal structural models
+
+Step 1, getting a glimpse of covariates balance by visit using the cobalt package
+
+
+```{r}
+library(cobalt) #package to assess covariates balance by treatment;
+
+#covariates balance at each visit;
+bal.tab(list(Z_1 ~ w1 + w2 + L1_1 + L2_1,
+        Z_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + Z_1),
+        data = causaldata, 
+        int = FALSE,
+        poly = 1, 
+        estimand = "ATE", 
+        stats = c("m"),
+        thresholds = c(m = 0.1),
+        which.time = .all)
+```
+
+
+Step 2, using package WeightIt to calculate visit specific propensity scores, we will use stabilized weights
+
+
+```{r}
+library(WeightIt)
+
+Wmsm <- weightitMSM(
+  list(Z_1 ~ w1 + w2 + L1_1 + L2_1,
+       Z_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + Z_1),
+  data = causaldata, 
+  method = "ps",
+  stabilize = TRUE)
+
+Wmsm
+```
+
+```{r}
+summary(Wmsm) # examine if there are extreme weights
+```
+
+
+Step 3, assess the post-weighting covariates balance, if you observe covariates that are not balanced by treatment, you go back to step 2 and update the treatment model (considering adding interaction terms and polynomial terms). not an issue if the previous treatment is not balanced, the both visit 1 and visit 2's treatment will be modelled in the marginal outcome model.
+
+
+```{r}
+bal.tab(Wmsm, 
+        stats = c("m"),
+        thresholds = c(m = .1),
+        which.time = .none)
+```
+
+
+Step 4, fitting weighted linear regression using the survey package. We will treat the stabilized, visit-specific weights are survey weights in the marginal outcome model. The estimated ATE between always and never treated is -3.1134.
+
+
+```{r}
+library(survey)
+
+# first create a survey object;
+msm_design <- svydesign(~1, weights = Wmsm$weights, data = causaldata)
+
+fitMSM <- svyglm(y ~ Z_1*Z_2, 
+                 design = msm_design)
+
+summary(fitMSM)
+```
+
+```{r}
+APO_11 <- predict(fitMSM, newdata = data.frame(Z_1=1,Z_2=1))
+APO_00 <- predict(fitMSM, newdata = data.frame(Z_1=0,Z_2=0))
+
+APO_11 - APO_00
+```
+
+```{r}
+# How to trim weights?;
+# generally weights greater than 10 is considered large;
+# weight truncation if needed can be done as following;
+# trim <- quantile(Wmsm$weights, c(.99)) #obtain 99th percentile of the weights;
+# sw_trim <- ifelse(Wmsm$weights > trim, trim, Wmsm$weights)
+
+# using bootstrap to obtain SE and confidence interval of the ATE;
+set.seed(123)
+boot.est <- rep(NA, 1000)
+for (i in 1:1000){
+
+  boot.idx <- sample(1:dim(causaldata)[1], size = dim(causaldata)[1], replace = T)
+  boot.data <- causaldata[boot.idx,]
+  
+  msm_design <- svydesign(~1, weights = Wmsm$weights, data = boot.data)
+  
+  fitMSM <- svyglm(y ~ Z_1*Z_2, design = msm_design)
+  
+  boot.est[i] <- predict(fitMSM, newdata = data.frame(Z_1=1,Z_2=1))[1] - predict(fitMSM, newdata = data.frame(Z_1=0,Z_2=0))[1]
+  
+}
+
+# SE of ATE;
+sd(boot.est)
+```
+
+```{r}
+#95% CI
+quantile(boot.est, probs = c(0.025, 0.975))
+```
+
+
+## 3.3 Implementing parametric g-computation
+
+Variance of the g-method is obtained via bootstrap, thus takes some time to run
+
+This package require a long-format data and a time variable that begin with 0 for baseline visit
+
+Step 1, preparing the long-format data for the analysis
+
+
+```{r}
+# preparing the data;
+# first transform wide data to long data;
+causaldata_long <- causaldata %>%
+  mutate(id = rep(1:1000)) %>% 
+  pivot_longer(cols = -c(w1,w2,y,id), 
+               names_to = c("variable","visit"), 
+               names_sep = "_", 
+               values_to = "value") %>% 
+  pivot_wider(names_from = variable, values_from = value) %>% 
+  mutate(time = case_when(visit == 1 ~ 0,
+                          visit == 2 ~ 1)) 
+
+# Y is only measured at the end-of-study,
+# thus, when we pivot to long format visit 1's y will have a missing value; 
+causaldata_long$y[causaldata_long$visit == 1] <- NA
+
+# look at the new data;
+datatable(causaldata_long,
+          rownames = FALSE,
+          options = list(dom = 't')) %>%
+  formatRound(columns=c('w2', 'L2', 'y'), digits=2)
+```
+
+```{r}
+library(gfoRmula)
+
+id <- 'id'
+time_name <- 'time'
+covnames <- c("L1", "L2", "Z")
+outcome_name <- 'y'
+covtypes <- c('binary', 'normal', 'binary')
+histories <- c(lagged) #lagged feature to call for lagged value from the long format data;
+histvars <- list(c('Z', 'L1', 'L2'))
+
+covparams <- list(
+  covmodels = c(L1 ~ w1 + w2 + lag1_L1 + lag1_Z,
+                L2 ~ lag1_L2 + w1 + w2 + lag1_Z,
+                Z ~ w1 + w2 + lag1_L1 + lag1_L2 + lag1_Z))
+
+ymodel <- y ~ lag1_Z*Z + w1 + w2 + lag1_L1 + lag1_L2 + L1 + L2
+
+intvars <- list('Z', 'Z')
+interventions <- list(list(c(static, rep(0, 2))),
+                      list(c(static, rep(1, 2))))
+int_descript <- c('Never treat', 'Always treat')
+
+gform_cont_eof <- gformula_continuous_eof(
+  obs_data = causaldata_long,
+  id = id,
+  time_name = time_name,
+  covnames =covnames,
+  outcome_name = outcome_name, 
+  covtypes = c("binary", "normal", "binary"),
+  covparams = covparams,  
+  ymodel = ymodel,
+  intvars = intvars, 
+  interventions = interventions,
+  int_descript = int_descript, 
+  ref_int = 1,
+  histories = c(lagged), 
+  histvars = list(c('Z',"L1","L2")), #variables that are time-dependent;
+  basecovs = c("w1","w2"), #time-independent baseline var;
+  nsimul = 1000, 
+  nsamples = 1000, 
+  parallel = TRUE, 
+  ncores = 6, #bootstrap features;
+  seed = 123)
+
+summary(gform_cont_eof)
+```
+
+
+Using g-computation, the estimate ATE is -3.111391 with SE = 0.09248469.
+
+## 1.4 Implementing Targeted maximum likelihood estimation
+
+ltmle package requires the input data to only include model needed variables! make sure to remove variable you will not be modelling from the data, e.g., id etc this package uses wide data
+
+
+```{r}
+library(ltmle)
+# Step 1, if applicable remove variables we don't need;
+colnames(causaldata)
+```
+
+```{r}
+# Step 2, fitting conventional tmle without superlearner (machine learning algorithm);
+
+tmle_model <- ltmle(data = causaldata,
+                    Anodes = c("Z_1","Z_2"),
+                    Lnodes = c("L1_1", "L2_1", "L1_2", "L2_2"), 
+                    Ynodes = c("y"), 
+                    survivalOutcome =FALSE,
+                    gform = c("Z_1 ~ w1 + w2 + L1_1 + L2_1",
+                              "Z_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + Z_1"),
+                    abar = list(c(1,1), c(0,0)))
+
+summary(tmle_model, estimator="tmle")
+```
+
+```{r}
+# Step 3, fitting tmle with superlearner on gform and Qform models;
+ 
+```
+
+
+tmle_model_sup \<- ltmle(causaldata, Anodes = c ("Z_1","Z_2") , Lnodes = c ("L1_1", "L2_1", "L1_2", "L2_2"), Ynodes = c("y"), survivalOutcome =FALSE, gform = c("Z_1 \~ w1 + w2 + L1_1 + L2_1", "Z_2 \~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + Z_1"), SL.library = c("SL.mean"), #see SuperLearner() function for detail, try SL.glm for binary outcome, other functions: SL.poisglm, SL.randomForest, SL.gbm; abar = list(c(1,1), c(0,0)), estimate.time = FALSE)
+
+summary(tmle_model_sup, estimator="tmle")
+
+The estimated ATE under conventional TMLE is -3.1165 with SE = 0.093326 and 95% CI: (-3.2994, -2.9336).
+
+The estimated ATE under superlearning TMLE is -3.117 with SE = 0.15396 (quite large!) and 95% CI: (-3.4187, -2.8152).
+
