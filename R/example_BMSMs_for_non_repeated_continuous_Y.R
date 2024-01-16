@@ -15,12 +15,33 @@ options(warn=-1)
 expit<-function(x){1/(1+exp(-x))}
 logit<-function(p){log(p)-log(1-p)}
 
-loglik<-function(param,resp1,resp2,resp3,mmat1,mmat2,mmat3,weight){
 
-  n<-length(resp1)
-  theta <- param[1:3]
 
-  sigma11 <- param[4]
+#log-likelihood for a simple linear regression where the outcome y is continous;
+#we assume the residual follows a normal distribution;
+#reference https://www.stat.cmu.edu/~cshalizi/mreg/15/lectures/06/lecture-06.pdf
+# and https://www.ime.unicamp.br/~cnaber/optim_1.pdf
+# equation 3 is the base log-likelihood function we are coding below;
+# we update this log-likelihood to include the treatment weights!
+
+# First figure out components of the likelihood;
+# 1. data: dependent variable (Y, outcome) and independent variables (A, treatment variables in our case);
+# 2. residuals follow a normal distribution with
+# 2.1 mean: y_i - theta*a_i; theta is a parameter vector storing treatment effects;
+# 2.2 variance: sigma^2, sigma is the standard deviation;
+# 3. treatment weights, 1 weight per patient;
+
+# we require wide format data, requiring 1 patient per row;
+loglik_normal<-function(param=,
+                        Y =,
+                        A =,
+                        trt_weight=){
+
+  # number of patients;
+  n<-length(y)
+  theta <- param[1:3] #causal parameters
+
+  sigma11 <- param[4] #variance of outcome
   sigma22 <- param[5]
   sigma33 <- param[6]
 
@@ -45,6 +66,8 @@ loglik<-function(param,resp1,resp2,resp3,mmat1,mmat2,mmat3,weight){
   return(logl)
 
 }
+
+# code likelihood for binary outcome;
 
 
 cat( " model {

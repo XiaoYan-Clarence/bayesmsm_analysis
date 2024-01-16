@@ -9,6 +9,7 @@ library(geepack)
 library(MuMIn)
 library(R2jags)
 library(runjags)
+library(coda)
 
 options(warn=-1)
 
@@ -106,15 +107,7 @@ jags.inits<-function(){list(b10=0.1,
                             bs20 = 0.1,
                             bs21 = 0.1)}
 
-jagsfit<- jags(data = list(x1= obs$x1,
-                           y1=obs$y1,
-                           z1=obs$z1,
-                           x2=obs$x2,
-                           y2=obs$y2,
-                           z2=obs$z2,
-                           z1s = obs$z1 ,
-                           z2s=obs$z2,
-                           N = ntot),
+jagsfit<- jags(data = jags.data,
                inits = jags.inits,
                jags.params,
                n.iter = 10000,
