@@ -1,14 +1,7 @@
 rm(list=ls())
-setwd("C:/Users/kuan liu/Dropbox (UT_KLiu)/thesis-simulation/paper1/")
-library(mvtnorm)
-library(nnet)
+
 library(MCMCpack)
-library(wgeesel)
-library(lme4)
-library(geepack)
-library(MuMIn)
 library(R2jags)
-library(runjags)
 
 options(warn=-1)
 
@@ -16,7 +9,122 @@ expit<-function(x){1/(1+exp(-x))}
 logit<-function(p){log(p)-log(1-p)}
 
 
+cat( " model {
 
+     #N = nobs
+     for (i in 1:N) {
+
+     # conditional treatment assignment model, visit 2;
+     a2[i] ~ dbern(p2[i])
+     logit(p2[i]) <- b20 + b21*w1[i] + b22*w2[i] + b23*L11[i] + b24*L21[i] + b25*a1[i] + b26*L12[i] + b27*L22[i]
+
+     # conditional treatment assignment model,visit 1;
+     a1[i] ~ dbern(p1[i])
+     logit(p1[i]) <- b10 + b11*w1[i] + b12*w2[i] + b13*L11[i] + b14*L21[i]
+
+     # marginal treatment assignment model, visit 2;
+     a2s[i] ~ dbern(p2s[i])
+     logit(p2s[i]) <- bs20 + bs21*a1s[i]
+
+     # marginal treatment assignment model, visit 1;
+     a1s[i] ~ dbern(p1s[i])
+     logit(p1s[i]) <- bs10
+
+     }
+
+     # Priors
+     bs10 ~ dnorm(0,10) #intercept;
+     bs20 ~ dnorm(0,10) #intercept;
+     bs21 ~ dnorm(0,5) #OR;
+
+     b10 ~ dnorm(0,10)
+     b11 ~ dnorm(0,5)
+     b12 ~ dnorm(0,5)
+     b13 ~ dnorm(0,5)
+     b14 ~ dnorm(0,5)
+
+     b20 ~ dnorm(0,10)
+     b21 ~ dnorm(0,5)
+     b22 ~ dnorm(0,5)
+     b23 ~ dnorm(0,5)
+     b24 ~ dnorm(0,5)
+     b25 ~ dnorm(0,5)
+     b26 ~ dnorm(0,5)
+     b27 ~ dnorm(0,5)
+
+     }",
+     file = "model_norm_testdata.txt")
+
+# read in test analysis data;
+testdata <- read_csv("R/continuous_outcome_data.csv",show_col_types = FALSE)
+
+# Assignment to Xiao, please write out the treatment assignment model given the testdata!
+# this is the 1st step to make sure you know how to specify treatment assignment model;
+
+# Bayesian inference 1. BMSM
+# Step 1: Bayesian parametric estimation of treatment assignment weights;
+jags.data<-list(w1=testdata$w1,
+                w2=testdata$w2,
+                L11=testdata$L1_1,
+                L12=testdata$L1_2,
+                L21=testdata$L2_1,
+                L22=testdata$L2_2,
+                a1 = testdata$a_1,
+                a2 = testdata$a_2,
+                a1s = testdata$a_1,
+                a2s = testdata$a_2,
+                N = length(testdata$y))
+
+jags.params<-c("bs10","bs20","bs21",
+               "b10","b11","b12","b13","b14",
+               "b20","b21", "b22","b23","b24", "b25","b26","b27"
+               )
+
+jags.inits<-function(){list(bs10 = 0.1,bs20 = 0.1,bs21 = 0.1,
+                            b10=0.1,b11=0.1,b12=0.1,b13=0.1,b14=0.1,
+                            b20=0.1,b21=0.1,b22=0.1,b23 = 0.1,b24=0.1,b25=0.1,b26=0.1,b27 = 0.1)}
+
+jagsfit<- jags(data = jags.data,
+               inits = jags.inits,
+               jags.params,
+               n.iter = 10000,
+               model.file = "model_norm_testdata.txt",
+               n.chains = 1,
+               n.burnin = 5000,
+               n.thin = 5)
+
+# or to use some plots in coda
+# use as.mcmmc to convert rjags object into mcmc.list
+jags.mcmc <- as.mcmc(jagsfit)
+out.mcmc <- as.matrix(jags.mcmc[[1]])
+geweke.diag(out.mcmc)
+
+pdraws = (10000 - 5000)/5 # (n.iter - n.burnin)/n.thin;
+n = length(testdata$y)
+
+p1<-matrix(NA, n, pdraws)
+p1s<-matrix(NA, n, pdraws)
+p2<-matrix(NA, n, pdraws)
+p2s<-matrix(NA, n, pdraws)
+
+#calculating the MCMC weights;
+
+
+for (j in 1:pdraws) {
+
+# treatment assignment probability for the ith patient with jth posterior parameter draws;
+p1[,j]<- expit(rowSums(as.matrix(cbind(1,testdata[,1:4]))*matrix(rep(out.mcmc[j,1:5],n),byrow = T,nrow=n)))
+p2[,j]<- p1[,j]*expit(rowSums(as.matrix(cbind(1,testdata[,1:7]))*matrix(rep(out.mcmc[j,6:13],n),byrow = T,nrow=n)))
+
+p1s[,j]<- expit(as.matrix(out.mcmc[j,14]))
+p2s[,j]<- p1s[,j]*expit(rowSums(as.matrix(cbind(1,testdata[,5]))*matrix(rep(out.mcmc[j,15:16],n),byrow = T,nrow=n)))
+
+}
+
+wmean <- colSums(p2s)/colSums(p2)
+
+
+# Step 2: Bayesian non-parametric bootstrap to calculate causal effect;
 #log-likelihood for a simple linear regression where the outcome y is continous;
 #we assume the residual follows a normal distribution;
 #reference https://www.stat.cmu.edu/~cshalizi/mreg/15/lectures/06/lecture-06.pdf
@@ -32,209 +140,77 @@ logit<-function(p){log(p)-log(1-p)}
 # 3. treatment weights, 1 weight per patient;
 
 # we require wide format data, requiring 1 patient per row;
-loglik_normal<-function(param=,
-                        Y =,
-                        A =,
-                        trt_weight=){
+loglik_normal<-function(param,
+                        Y,
+                        A,
+                        weight){
+  #number of observations;
+  n <- length(Y)
+  theta <- param[1:dim(A)[2]] #causal parameters on the mean
+  #number of parameter is determined by number of treatment variables, plus intercept;
+  sigma <- param[(dim(A)[2]+1)] # the remaining the parameter represent the standard deviation;
+  mmat <- as.matrix(A) #design matrix of the causal outcome model, e.g., A = cbind(1, a_1, a_2);
+  logl<- -0.5*log(sigma^2) - 0.5*((Y - mmat%*%theta)^2)/(sigma^2)
+  wlogl<-sum(weight*logl)
 
-  # number of patients;
-  n<-length(y)
-  theta <- param[1:3] #causal parameters
-
-  sigma11 <- param[4] #variance of outcome
-  sigma22 <- param[5]
-  sigma33 <- param[6]
-
-  weight1<-as.vector(weight[,1])
-  weight2<-as.vector(weight[,2])
-  weight3<-as.vector(weight[,3])
-
-  e1<- (resp1 - mmat1%*%theta)
-  e2<- (resp2 - mmat2%*%theta)
-  e3<- (resp3 - mmat3%*%theta)
-
-  logl <- NA
-
-  logl1<- -0.5*log(sigma11) - 0.5*((e1)^2)/(sigma11)
-
-  logl2<- -0.5*log(sigma22) - 0.5*((e2)^2)/(sigma22)
-
-  logl3<- -0.5*log(sigma33) - 0.5*((e3)^2)/(sigma33)
-
-  logl<- sum(weight1*logl1)+sum(weight2*logl2)+sum(weight3*logl3)
-
-  return(logl)
-
+  return(wlogl)
 }
 
-# code likelihood for binary outcome;
+# Dirichlet sampling
 
-
-cat( " model {
-
-     #N = nobs
-     for (i in 1:N) {
-
-     # conditional treatment assignment model, v2;
-     z2[i] ~ dbern(p2[i])
-     logit(p2[i]) <- b20 + b21*x2[i] + b22*y2[i] + b23*z1[i]
-
-     # marginal treatment assignment model, v2;
-     z2s[i] ~ dbern(p2s[i])
-     logit(p2s[i]) <- bs20 + bs21*z1[i]
-
-     # conditional treatment assignment model, v1;
-     z1[i] ~ dbern(p1[i])
-     logit(p1[i]) <- b10 + b11*x1[i] + b12*y1[i]
-
-     # marginal treatment assignment model, v1;
-     z1s[i] ~ dbern(p1s[i])
-     logit(p1s[i]) <- bs10
-
-     }
-
-     # Priors
-     b10 ~ dunif(-10,10) #true 0;
-     b11 ~ dunif(-10,10) #true 0.2;
-     b12 ~ dunif(-10,10) #true -0.05;
-
-     b20 ~ dunif(-10,10)
-     b21 ~ dunif(-10,10)
-     b22 ~ dunif(-10,10)
-     b23 ~ dunif(-10,10) #true 2
-
-     bs10 ~ dunif(-10,10)
-     bs20 ~ dunif(-10,10)
-     bs21 ~ dunif(-10,10)
-
-
-     }",
-     file = "model_unif3.txt")
-
-
-# Bayesian inference 1. BMSM
-# first obtain MCMC sample for weights! from posterior distribution of treatment assignment parameters;
-jags.data<-list(x1= obs$x1, y1=obs$y1, z1=obs$z1,  x2=obs$x2, y2=obs$y2, z2=obs$z2, z1s = obs$z1 , z2s=obs$z2, N = ntot)
-jags.params<-c("b10","b11","b12","b20","b21", "b22","b23",
-               "bs10","bs20","bs21")
-
-jags.inits<-function(){list(b10=0.1,
-                            b11=0.1,
-                            b12=0.1,
-                            b20=0.1,
-                            b21=0.1,
-                            b22=0.1,
-                            b23 = 0.1,
-                            bs10 = 0.1,
-                            bs20 = 0.1,
-                            bs21 = 0.1)}
-
-jagsfit<- jags(data = list(x1= obs$x1,
-                           y1=obs$y1,
-                           z1=obs$z1,
-                           x2=obs$x2,
-                           y2=obs$y2,
-                           z2=obs$z2,
-                           z1s = obs$z1 ,
-                           z2s=obs$z2,
-                           N = ntot),
-               inits = jags.inits,
-               jags.params,
-               n.iter = 10000,
-               model.file = "model_unif3.txt",
-               n.chains = 1,
-               n.burnin = 5000,
-               n.thin = 5)
-
-# or to use some plots in coda
-# use as.mcmmc to convert rjags object into mcmc.list
-jags.mcmc <- as.mcmc(jagsfit)
-out.mcmc <- as.matrix(jags.mcmc[[1]])
-
-samplesize = 1000
-ntot = 500
-obs_prob1<-matrix(NA, samplesize, ntot)
-exp_prob1<-matrix(NA, samplesize, ntot)
-obs_prob2<-matrix(NA, samplesize, ntot)
-exp_prob2<-matrix(NA, samplesize, ntot)
-
-#calulating the MCMC weights;
-for (i2 in 1:(samplesize)){
-  for (j2 in 1:(ntot)){
-
-    exp_prob1[i2,j2] <- (exp(z[j2,1]*out.mcmc[i2,8]))/(1.0+exp(out.mcmc[i2,8]))
-    exp_prob2[i2,j2] <- exp_prob1[i2,j2]*(exp(z[j2,2]*(out.mcmc[i2,9]+out.mcmc[i2,10]*z[j2,1])))/(1.0+exp(out.mcmc[i2,9]+out.mcmc[i2,10]*z[j2,1]))
-
-    obs_prob1[i2,j2] <- (exp(z[j2,1]*(out.mcmc[i2,1] + out.mcmc[i2,2]*Lobs[j2,1]+out.mcmc[i2,3]*Lobs[j2,2])))/(1.0+exp(out.mcmc[i2,1] + out.mcmc[i2,2]*Lobs[j2,1]+out.mcmc[i2,3]*Lobs[j2,2]))
-    obs_prob2[i2,j2] <- obs_prob1[i2,j2]*(exp(z[j2,2]*(out.mcmc[i2,4]+out.mcmc[i2,5]*Lobs[j2,3]+out.mcmc[i2,6]*Lobs[j2,4]+out.mcmc[i2,7]*z[j2,1])))/(1.0+exp(out.mcmc[i2,4]+out.mcmc[i2,5]*Lobs[j2,3]+out.mcmc[i2,6]*Lobs[j2,4]+out.mcmc[i2,7]*z[j2,1]))
-
-  }
-
-  # if (i2 %% 50 == 0) {
-  #   print(i2)
-  # }
-}
-
-wmean2_s <- colSums(exp_prob1)/colSums(obs_prob1)
-wmean3_s <- colSums(exp_prob2)/colSums(obs_prob2)
-wmean_s<-cbind(rep(1,ntot),wmean2_s, wmean3_s)
-
-#Multinomial sampling - unweighted error variance:
-
-inits1<-c(30,5,0.2,16,36,49)
-nboot = 1000
-
-bootest1<-numeric(nboot)
-
-for (i in 1:nboot) {
-  alpha <- rep(1/ntot, ntot)
-  bootidx <- as.matrix(rep(1:ntot, rmultinom(1, ntot, alpha)))
-
-  maxim <- optim(inits1, fn=loglik,
-                 resp1=obs$y1[bootidx],
-                 resp2=obs$y2[bootidx],
-                 resp3=obs$y3[bootidx],
-                 mmat1=cbind(1,obs$cumz1[bootidx],1),
-                 mmat2=cbind(1,obs$cumz2[bootidx],2),
-                 mmat3=cbind(1,obs$cumz3[bootidx],3),
-                 weight=wmean_s[bootidx,],
-                 control=list(fnscale=-1),
-                 method='BFGS', hessian=F)
-  bootest1[i] <- maxim$par[2]
-
-  # if (i %% 50 == 0) {
-  #   print(i)
-  # }
-}
-
-mean(bootest1)
-var(bootest1)
-quantile(bootest1, probs=c(0.025,0.975))
-
-# Dirichlet sampling - unweighted error:
-bootest3<-numeric(nboot)
+inits1<-c(0.1,0.1,0.1,4) #three mean parameters + 1 variance parameter
+nboot <- 1000
+bootest<-numeric(nboot)
 
 for (j in 1:nboot) {
-  alpha <- as.numeric(rdirichlet(1, rep(1.0, ntot)))
+  alpha <- as.numeric(rdirichlet(1, rep(1.0, length(testdata$y))))
 
   maxim <- optim(inits1,
-                 fn=loglik,
-                 resp1=obs$y1,
-                 resp2=obs$y2,
-                 resp3=obs$y3,
-                 mmat1=cbind(1,obs$cumz1,1),
-                 mmat2=cbind(1,obs$cumz2,2),
-                 mmat3=cbind(1,obs$cumz3,3),
-                 weight=alpha*wmean_s,
+                 fn=loglik_normal,
+                 Y=testdata$y,
+                 A=cbind(1,testdata$a_1, testdata$a_2), #three mean parameters (intercept + coefficient for a_1 and coefficient for a_2);
+                 weight=alpha*wmean,
                  control=list(fnscale=-1), method='BFGS', hessian=F)
-  bootest3[j] <- maxim$par[2]
+  bootest[j] <- maxim$par[2]+maxim$par[3] #difference on the mean of Y between always treated and never treated;
 
-  # if (j %% 50 == 0) {
-  #   print(j)
-  # }
+  if (j %% 100 == 0) {
+    print(j)
+  }
 }
 
 
-mean(bootest3)
-var(bootest3)
-quantile(bootest3, probs=c(0.025,0.975))
+mean(bootest)
+var(bootest)
+quantile(bootest, probs=c(0.025,0.975))
+
+# > mean(bootest)
+# [1] -3.164371
+# > var(bootest)
+# [1] 0.009552388
+# > quantile(bootest, probs=c(0.025,0.975))
+# 2.5%     97.5%
+#   -3.356955 -2.975744
+
+#comparing to frequentist MSMs;
+library(WeightIt)
+Wmsm <- weightitMSM(
+  list(a_1 ~ w1 + w2 + L1_1 + L2_1,
+       a_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + a_1),
+  data = testdata,
+  method = "ps",
+  stabilize = TRUE)
+
+library(survey)
+msm_design <- svydesign(~1, weights = Wmsm$weights, data = testdata)
+fitMSM <- svyglm(y ~ a_1+a_2, design = msm_design)
+summary(fitMSM)
+
+APO_11 <- predict(fitMSM, newdata = data.frame(a_1=1,a_2=1))
+APO_00 <- predict(fitMSM, newdata = data.frame(a_1=0,a_2=0))
+APO_11 - APO_00
+# link     SE
+# 1 -3.1611 0.0758
+
+# super similar!
+
+
