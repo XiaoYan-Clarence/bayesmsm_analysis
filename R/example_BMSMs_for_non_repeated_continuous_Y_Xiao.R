@@ -2,6 +2,7 @@ rm(list=ls())
 
 library(MCMCpack)
 library(R2jags)
+library(readr)
 
 options(warn=-1)
 
@@ -60,6 +61,39 @@ testdata <- read_csv("R/continuous_outcome_data.csv",show_col_types = FALSE)
 
 # Assignment to Xiao, please write out the treatment assignment model given the testdata!
 # this is the 1st step to make sure you know how to specify treatment assignment model;
+
+cat( " model {
+  # testdata contains variables: w1, w2, L1_1, L2_1 (covariates)
+  # and a_1, a_2 (treatment variables)
+
+  #N = nobs
+  for (i in 1:N) {
+    # Treatment assignment model for a_1 (visit 1)
+    a1[i] ~ dbern(p1[i])
+    logit(p1[i]) <- b10 + b11*w1[i] + b12*w2[i] + b13*L11[i] + b14*L21[i]
+
+    # Treatment assignment model for a_2 (visit 2)
+    a2[i] ~ dbern(p2[i])
+    logit(p2[i]) <- b20 + b21*w1[i] + b22*w2[i] + b23*L11[i] + b24*L21[i] + b25*a1[i]
+  }
+
+  # Priors
+  b10 ~ dnorm(0,10) #intercept;
+  b20 ~ dnorm(0,10) #intercept;
+
+  b11 ~ dnorm(0,5)
+  b12 ~ dnorm(0,5)
+  b13 ~ dnorm(0,5)
+  b14 ~ dnorm(0,5)
+
+  b21 ~ dnorm(0,5)
+  b22 ~ dnorm(0,5)
+  b23 ~ dnorm(0,5)
+  b24 ~ dnorm(0,5)
+  b25 ~ dnorm(0,5)
+
+  }",
+  file = "model_norm_testdata_xiao.txt")
 
 # Bayesian inference 1. BMSM
 # Step 1: Bayesian parametric estimation of treatment assignment weights;
