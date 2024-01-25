@@ -1,5 +1,6 @@
 rm(list=ls())
 
+library(tidyverse)
 library(MCMCpack)
 library(R2jags)
 
@@ -77,8 +78,7 @@ jags.data<-list(w1=testdata$w1,
 
 jags.params<-c("bs10","bs20","bs21",
                "b10","b11","b12","b13","b14",
-               "b20","b21", "b22","b23","b24", "b25","b26","b27"
-               )
+               "b20","b21", "b22","b23","b24", "b25","b26","b27")
 
 jags.inits<-function(){list(bs10 = 0.1,bs20 = 0.1,bs21 = 0.1,
                             b10=0.1,b11=0.1,b12=0.1,b13=0.1,b14=0.1,
@@ -99,7 +99,7 @@ jags.mcmc <- as.mcmc(jagsfit)
 out.mcmc <- as.matrix(jags.mcmc[[1]])
 geweke.diag(out.mcmc)
 
-pdraws = (10000 - 5000)/5 # (n.iter - n.burnin)/n.thin;
+pdraws = (10000 - 5000)/5 # ((n.iter - n.burnin)/n.thin)*n.chains;
 n = length(testdata$y)
 
 p1<-matrix(NA, n, pdraws)
@@ -123,6 +123,8 @@ p2s[,j]<- p1s[,j]*expit(rowSums(as.matrix(cbind(1,testdata[,5]))*matrix(rep(out.
 
 wmean <- colSums(p2s)/colSums(p2)
 
+testweight <- rep(1, length(testdata$y))
+
 
 # Step 2: Bayesian non-parametric bootstrap to calculate causal effect;
 #log-likelihood for a simple linear regression where the outcome y is continous;
@@ -140,7 +142,7 @@ wmean <- colSums(p2s)/colSums(p2)
 # 3. treatment weights, 1 weight per patient;
 
 # we require wide format data, requiring 1 patient per row;
-loglik_normal<-function(param,
+wloglik_normal<-function(param,
                         Y,
                         A,
                         weight){
@@ -157,7 +159,7 @@ loglik_normal<-function(param,
 }
 
 # Dirichlet sampling
-
+#automation;
 inits1<-c(0.1,0.1,0.1,4) #three mean parameters + 1 variance parameter
 nboot <- 1000
 bootest<-numeric(nboot)
@@ -166,7 +168,7 @@ for (j in 1:nboot) {
   alpha <- as.numeric(rdirichlet(1, rep(1.0, length(testdata$y))))
 
   maxim <- optim(inits1,
-                 fn=loglik_normal,
+                 fn=wloglik_normal,
                  Y=testdata$y,
                  A=cbind(1,testdata$a_1, testdata$a_2), #three mean parameters (intercept + coefficient for a_1 and coefficient for a_2);
                  weight=alpha*wmean,
@@ -180,8 +182,37 @@ for (j in 1:nboot) {
 
 
 mean(bootest)
-var(bootest)
+sqrt(var(bootest))
 quantile(bootest, probs=c(0.025,0.975))
+
+testdata2 <- testdata %>%
+  mutate(a_3 = rbinom(n=1000, 1, p=0.6)) %>%
+  rename(age = w1, sex = w2)
+
+bayeWeight
+
+bayemsm(formula = "myoutcome~trtv1 + trtv2 + trtvk",
+        data = ,
+        weight = testweight,
+        nboot = default is 1000,
+        method = 'BFGS' this is default, code it possible to change following optim funciton,
+        init = imput(0) ))
+
+output
+
+# Call:
+#   bayemsm(formula = myoutcome~trtv1 + trtv2 + trtvk, data = xxx)
+#
+# Causal parameter Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)
+# (Intercept)  2.31260    0.04913   47.07   <2e-16 ***
+#   a_1         -1.08511    0.08490  -12.78   <2e-16 ***
+#   a_2         -2.07599    0.07941  -26.14   <2e-16 ***
+#   ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+
 
 # > mean(bootest)
 # [1] -3.164371
@@ -199,6 +230,10 @@ Wmsm <- weightitMSM(
   data = testdata,
   method = "ps",
   stabilize = TRUE)
+
+summary(Wmsm)
+
+
 
 library(survey)
 msm_design <- svydesign(~1, weights = Wmsm$weights, data = testdata)
