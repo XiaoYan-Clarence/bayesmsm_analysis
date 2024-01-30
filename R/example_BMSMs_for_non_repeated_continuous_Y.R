@@ -275,3 +275,32 @@ model_formula <- as.formula("myoutcome ~ thing1 + thing2^2 + thing1*thing2")
 variables <- extract_variables(model_formula)
 print(variables)
 
+
+create_jags_model_file <- function(filename, model_parameters) {
+  # Start writing the model
+  model_string <- "model {\n"
+
+  # Add parts to the model based on the input parameters
+  # For example, let's say model_parameters is a list containing
+  # information about the priors or structure of the model
+  for (param in model_parameters) {
+    model_string <- paste0(model_string, "    ", param, "\n")
+  }
+
+  # Close the model
+  model_string <- paste0(model_string, "}")
+
+  # Write the model string to a file
+  writeLines(model_string, con = filename)
+}
+
+# Example usage
+model_parameters <- c(
+  "for (i in 1:N) {",
+  "    y[i] ~ dnorm(mu, tau)",
+  "}",
+  "mu ~ dnorm(0.0, 1.0E-6)",
+  "tau ~ dgamma(0.001, 0.001)"
+)
+create_jags_model_file("my_jags_model.txt", model_parameters)
+
