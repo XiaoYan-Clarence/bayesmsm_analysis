@@ -250,3 +250,28 @@ APO_11 - APO_00
 # super similar!
 
 
+extract_variables <- function(formula) {
+  # Get the terms of the formula
+  formula_terms <- terms(formula)
+
+  # Extract the response variable name (if there is one)
+  response_variable <- attr(formula_terms, "response")
+  response_name <- if (response_variable > 0) {
+    all_vars <- all.vars(formula)
+    all_vars[response_variable]
+  } else {
+    NA
+  }
+
+  # Extract predictor variable names
+  predictor_names <- attr(formula_terms, "term.labels")
+
+  # Return a list of response and predictor variables
+  list(response = response_name, predictors = predictor_names)
+}
+
+# Example usage
+model_formula <- as.formula("myoutcome ~ thing1 + thing2^2 + thing1*thing2")
+variables <- extract_variables(model_formula)
+print(variables)
+
