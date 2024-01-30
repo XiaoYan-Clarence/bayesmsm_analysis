@@ -31,6 +31,9 @@ cat( " model {
      a1s[i] ~ dbern(p1s[i])
      logit(p1s[i]) <- bs10
 
+     # generative quantity;
+     cum_w[i] <- (p1s[i]*p2s[i])/(p1[i]*p2[i])
+
      }
 
      # Priors
@@ -76,9 +79,7 @@ jags.data<-list(w1=testdata$w1,
                 a2s = testdata$a_2,
                 N = length(testdata$y))
 
-jags.params<-c("bs10","bs20","bs21",
-               "b10","b11","b12","b13","b14",
-               "b20","b21", "b22","b23","b24", "b25","b26","b27")
+jags.params<-c("cum_w")
 
 jags.inits<-function(){list(bs10 = 0.1,bs20 = 0.1,bs21 = 0.1,
                             b10=0.1,b11=0.1,b12=0.1,b13=0.1,b14=0.1,
@@ -97,7 +98,7 @@ jagsfit<- jags(data = jags.data,
 # use as.mcmmc to convert rjags object into mcmc.list
 jags.mcmc <- as.mcmc(jagsfit)
 out.mcmc <- as.matrix(jags.mcmc[[1]])
-geweke.diag(out.mcmc)
+# geweke.diag(out.mcmc)
 
 pdraws = (10000 - 5000)/5 # ((n.iter - n.burnin)/n.thin)*n.chains;
 n = length(testdata$y)
