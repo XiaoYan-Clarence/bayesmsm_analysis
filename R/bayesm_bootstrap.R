@@ -15,8 +15,10 @@
 #' @return A list of summary measures (mean, sd, quantile)
 #' @export
 #'
-bayesm_bootstrap <- function(wloglik_function, testdata, wmean = rep(1, 1000), nboot = 1000,
-                             inits1 = c(rep(0.1, length(treatment_vars)+1),4), optim_control = list(fnscale = -1),
+bayesm_bootstrap <- function(wloglik_function, testdata, wmean = rep(1, 1000),
+                             nboot = 1000,
+                             inits1 = c(rep(0.1, length(treatment_vars)+1),4),
+                             optim_control = list(fnscale = -1),
                              optim_method = 'BFGS', optim_hessian = FALSE) {
   bootest <- numeric(nboot)
   treatment_vars <- names(testdata)[grepl("^a_", names(testdata))]
@@ -32,7 +34,8 @@ bayesm_bootstrap <- function(wloglik_function, testdata, wmean = rep(1, 1000), n
                    control = optim_control,
                    method = optim_method,
                    hessian = optim_hessian)
-    bootest[j] <- sum(maxim$par[2:length(treatment_vars)+1]) # Sum the effects for all treatment variables
+    bootest[j] <- sum(maxim$par[2:length(treatment_vars)+1])
+    # Sum the effects for all treatment variables
 
     if (j %% 100 == 0) {
       print(j)
