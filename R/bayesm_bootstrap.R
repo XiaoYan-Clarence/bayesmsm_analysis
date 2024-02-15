@@ -139,12 +139,62 @@ bayesm_bootstrap <- function(ymodel = "myoutcome ~ thing1 + a1^2 + thing3",
     [9] -1.14763173
     y= intercept+ "a_1"+"a_2"+"a_3" + "a_1:a_2"+"a_1:a_3"+"a_2:a_3"+"a_1:a_2:a_3"
     ref_int <- c(0,1,1)
-    y given a_1 = 0, a_2=1, a_3=0 what is that value given the parameter estimates =
+    # y given a_1 = 0, a_2=1, a_3=0 what is that value given the parameter estimates =
+
+
+    # Function to calculate the effect of an intervention given the parameter estimates and intervention levels
+    calculate_effect <- function(intervention_levels, variables, param_estimates) {
+      # Start with the intercept term
+      effect <- param_estimates[1]
+
+      # Go through each predictor and add its contribution
+      for (i in 1:length(variables$predictors)) {
+        term <- variables$predictors[i]
+        term_variables <- unlist(strsplit(term, ":"))
+        term_index <- which(names(param_estimates) == term)
+
+        # Calculate the product of intervention levels for the interaction term
+        term_contribution <- param_estimates[term_index]
+        for (term_variable in term_variables) {
+          var_index <- which(variables$predictors == term_variable)
+          term_contribution <- term_contribution * intervention_levels[var_index]
+        }
+
+        # Add the term contribution to the effect
+        effect <- effect + term_contribution
+      }
+
+      return(effect)
+    }
+
+    # Testing with our previous results
+    maxim$par <- c(2.40706022, -1.33106703, -2.31545410, -0.09949307, 0.58522148, 0.32738170, 0.14387898, -0.22532452, -1.14763173)
+    # names(maxim$par) <- c("(Intercept)", "a_1", "a_2", "a_3", "a_1:a_2", "a_1:a_3", "a_2:a_3", "a_1:a_2:a_3")
+    names(maxim$par) <- c("(Intercept)", variables$predictors)
+
+    # Treatment history
+    ref_int <- c(0, 1, 1)  # Example: a_1 = 0, a_2 = 1, a_3 = 1
+    comparator <- c(1, 1, 1)  # Example: a_1 = 1, a_2 = 1, a_3 = 1
+
+    # Calculate the effects
+    effect_ref_int <- calculate_effect(ref_int, variables, param_estimates=maxim$par)
+    effect_comparator <- calculate_effect(comparator, variables, param_estimates=maxim$par)
+
+    # effect_ref_int
+    # (Intercept)
+    # 0.135992
+    # which is exactly 2.40706022-2.31545410-0.09949307+0.14387898!!!
+
+    # Calculate the ATE
+    bootest <- effect_comparator - effect_ref_int
+
+
+
 
       # adding empty initation similar to bootest outside the loop;
-    effect_ref_int[j] <- sum(maxim$par[intervention$ref_int]) # Example: ref_int = c(0,0), never treated for 2 visits
-    effect_comparator[j] <- sum(maxim$par[intervention$comparator]) # Example: comparator = c(1,1), always treated for 2 visits
-    bootest[j] <- effect_comparator - effect_ref_int # Not sure if this is correct; for example always treated vs never treated
+    # effect_ref_int[j] <- sum(maxim$par[intervention$ref_int]) # Example: ref_int = c(0,0), never treated for 2 visits
+    # effect_comparator[j] <- sum(maxim$par[intervention$comparator]) # Example: comparator = c(1,1), always treated for 2 visits
+    # bootest[j] <- effect_comparator - effect_ref_int # Not sure if this is correct; for example always treated vs never treated
     # Sum the effects for all treatment variables
 
     if (j %% 100 == 0) {
@@ -155,7 +205,8 @@ bayesm_bootstrap <- function(ymodel = "myoutcome ~ thing1 + a1^2 + thing3",
   return(list(
     mean = mean(bootest),
     sd = sqrt(var(bootest)),
-    quantile = quantile(bootest, probs = c(0.025, 0.975))
+    quantile = quantile(bootest, probs = c(0.025, 0.975)),
+    data.frame(effect_ref_int, effect_comparator, bootest)
   ))
 
   #also save output dataframe this will have 3 columns each corrsponding to effect_ref_int,effect_comparator, difference;
