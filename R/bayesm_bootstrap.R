@@ -13,32 +13,39 @@
 #' @return A list of summary measures (mean, sd, quantile)
 #' @export
 #'
-bayesm_bootstrap <- function(ymodel = "myoutcome ~ thing1 + a1^2 + thing3",
+
+bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
                              nvisit = 10,
-                             intervention = list(ref_int = c(rep(0,n_visits)),
-                                                 comparator = c(rep(1,n_visits))), # just an example for 2 vectors of treatments
                              ref_int = c(rep(0,n_visits)), # An example of never treated
+                             comparator = c(rep(1,n_visits)),
                              family = "gaussian", # "gaussian" or "binomial"
                              data = testdata,
                              wmean = rep(1, 1000),
                              nboot = 1000,
-                             optim_method = 'BFGS'){
+                             optim_method = 'BFGS',
+                             parallel = TRUE,
+                             ncore = 4){
 
   #testing;
-  ymodel = y ~ a_1+a_2+a_1*a_2*a_3 + a_2*a_3;
-  nvisit = 3;
-  intervention = list(ref_int = c(rep(0,nvisit)),
-                      comparator = c(rep(1,nvisit))); # just an example for 2 vectors of treatments
-  ref_int = c(rep(0,nvisit)); # An example of never treated
-  family = "gaussian";
-  data = testdata;
-  wmean = rep(1, 1000);
-  nboot = 1000;
-  optim_method = 'BFGS';
+  # ymodel = y ~ a_1*a_2*a_3*a_4;
+  # nvisit = 4;
+  # ref_int = c(rep(0,4));
+  # comparator = c(rep(1,4));
+  # family = "gaussian";
+  # data = testdata;
+  # wmean = rep(1, 1000);
+  # nboot = 1000;
+  # optim_method = "BFGS";
 
   # first thing first load all the required R packages;
-  library(MCMCpack)
-
+  if (!require(foreach)){
+    install.packages("foreach",repos="http://cran.r-project.org")
+    library(foreach)
+  }
+  if (!require(doParallel)){
+    install.packages("doParallel",repos="http://cran.r-project.org")
+    library(doParallel)
+  }
 
   # check
   # return error message if the input weight vector has different length comparing to the outcome Y;
@@ -51,6 +58,7 @@ bayesm_bootstrap <- function(ymodel = "myoutcome ~ thing1 + a1^2 + thing3",
   #   stop("The potential outcome treatment sequence does not match with nvisit in length")
   # }
 
+  # loading utility functions;
   extract_variables <- function(formula) {
     # Get the terms of the formula
     formula_terms <- terms(formula)
@@ -60,16 +68,14 @@ bayesm_bootstrap <- function(ymodel = "myoutcome ~ thing1 + a1^2 + thing3",
     response_name <- if (response_variable > 0) {
       all_vars <- all.vars(formula)
       all_vars[response_variable]
-    } else {
-      NA
-    }
+    } else {NA}
 
     # Extract predictor variable names
     predictor_names <- attr(formula_terms, "term.labels")
 
     # Return a list of response and predictor variables
     list(response = response_name, predictors = predictor_names)
-  }
+   }
 
   variables <- extract_variables(ymodel) # Extract variable names from the formula
   Y_name <- variables$response
@@ -116,15 +122,23 @@ bayesm_bootstrap <- function(ymodel = "myoutcome ~ thing1 + a1^2 + thing3",
     stop("Current version only handles continuous (gaussian) and binary (binomial) outcomes.")
   }
 
-  bootest <- numeric(nboot)
 
-  for (j in 1:nboot) {
+  #parallet computing only for this bootstrap step;
+  if (parallel == TRUE){
+  numCores <- ncore
+  registerDoParallel(cores = numCores)
 
-    j = 1;
+  results <- foreach(i=1:nboot, .combine = 'rbind') %dopar% {
+
+    if (!require(MCMCpack)){
+      install.packages("MCMCpack",repos="http://cran.r-project.org")
+      library(MCMCpack)
+    }
+
+    results.it <- matrix(NA, 1, 3) #result matrix, three columns for bootest, effect_ref, and effect_comp;
+
     alpha <- as.numeric(rdirichlet(1, rep(1.0, length(Y))))
-
-    inits1 <- c(rep(0.1, length(A)), 4)  # Default initial values
-
+    inits1 <- c(rep(0.1, length(A)), 4)  # Default initial values, 4 is for the SD;
     maxim <- optim(inits1,
                    fn = wfn,
                    Y = Y,
@@ -133,19 +147,13 @@ bayesm_bootstrap <- function(ymodel = "myoutcome ~ thing1 + a1^2 + thing3",
                    control = list(fnscale = -1),
                    method = optim_method,
                    hessian = FALSE)
-    #Feb 8th, 2024;
-    maxim$par
-    [1]  2.40706022 -1.33106703 -2.31545410 -0.09949307  0.58522148  0.32738170  0.14387898 -0.22532452
-    [9] -1.14763173
-    y= intercept+ "a_1"+"a_2"+"a_3" + "a_1:a_2"+"a_1:a_3"+"a_2:a_3"+"a_1:a_2:a_3"
-    ref_int <- c(0,1,1)
-    # y given a_1 = 0, a_2=1, a_3=0 what is that value given the parameter estimates =
 
+    names(maxim$par) <- c("(Intercept)", variables$predictors)
 
     # Function to calculate the effect of an intervention given the parameter estimates and intervention levels
     calculate_effect <- function(intervention_levels, variables, param_estimates) {
       # Start with the intercept term
-      effect <- param_estimates[1]
+      effect<-effect_intercept<-param_estimates[1]
 
       # Go through each predictor and add its contribution
       for (i in 1:length(variables$predictors)) {
@@ -167,64 +175,81 @@ bayesm_bootstrap <- function(ymodel = "myoutcome ~ thing1 + a1^2 + thing3",
       return(effect)
     }
 
-    # Testing with our previous results
-    maxim$par <- c(2.40706022, -1.33106703, -2.31545410, -0.09949307, 0.58522148, 0.32738170, 0.14387898, -0.22532452, -1.14763173)
-    # names(maxim$par) <- c("(Intercept)", "a_1", "a_2", "a_3", "a_1:a_2", "a_1:a_3", "a_2:a_3", "a_1:a_2:a_3")
-    names(maxim$par) <- c("(Intercept)", variables$predictors)
-
-    # Treatment history
-    ref_int <- c(0, 1, 1)  # Example: a_1 = 0, a_2 = 1, a_3 = 1
-    comparator <- c(1, 1, 1)  # Example: a_1 = 1, a_2 = 1, a_3 = 1
-
     # Calculate the effects
-    effect_ref_int <- calculate_effect(ref_int, variables, param_estimates=maxim$par)
-    effect_comparator <- calculate_effect(comparator, variables, param_estimates=maxim$par)
-
-    # effect_ref_int
-    # (Intercept)
-    # 0.135992
-    # which is exactly 2.40706022-2.31545410-0.09949307+0.14387898!!!
-
+    results.it[1,1] <- calculate_effect(ref_int, variables, param_estimates=maxim$par)
+    results.it[1,2] <- calculate_effect(comparator, variables, param_estimates=maxim$par)
     # Calculate the ATE
-    bootest <- effect_comparator - effect_ref_int
+    results.it[1,3] <- results.it[1,1] - results.it[1,2]
 
-
-
-
-      # adding empty initation similar to bootest outside the loop;
-    # effect_ref_int[j] <- sum(maxim$par[intervention$ref_int]) # Example: ref_int = c(0,0), never treated for 2 visits
-    # effect_comparator[j] <- sum(maxim$par[intervention$comparator]) # Example: comparator = c(1,1), always treated for 2 visits
-    # bootest[j] <- effect_comparator - effect_ref_int # Not sure if this is correct; for example always treated vs never treated
-    # Sum the effects for all treatment variables
-
-    if (j %% 100 == 0) {
-      print(j)
-    }
+    # combining parallel results;
+    cbind(i,results.it) #end of parallel;
   }
 
+  #saving output for the non-parallel setting;
   return(list(
-    mean = mean(bootest),
-    sd = sqrt(var(bootest)),
-    quantile = quantile(bootest, probs = c(0.025, 0.975)),
-    data.frame(effect_ref_int, effect_comparator, bootest)
+    mean = mean(results[,4]),
+    sd = sqrt(var(results[,4])),
+    quantile = quantile(results[,4], probs = c(0.025, 0.975)),
+    bootdata <- data.frame(results[,-1])
   ))
 
-  #also save output dataframe this will have 3 columns each corrsponding to effect_ref_int,effect_comparator, difference;
+  }
+
+  else if (parallel == FALSE) {
+
+    bootest <- numeric(nboot)
+    effect_ref_int <- numeric(nboot)
+    effect_comparator <- numeric(nboot)
+
+    for (j in 1:nboot) {
+      alpha <- as.numeric(rdirichlet(1, rep(1.0, length(Y))))
+      inits1 <- c(rep(0.1, length(A)), 4)  # Default initial values, 4 is for the SD;
+      maxim <- optim(inits1,
+                     fn = wfn,
+                     Y = Y,
+                     A = A,
+                     weight = alpha * wmean,
+                     control = list(fnscale = -1),
+                     method = optim_method,
+                     hessian = FALSE)
+
+      names(maxim$par) <- c("(Intercept)", variables$predictors)
+
+      # Calculate the effects
+      effect_ref_int[j] <- calculate_effect(ref_int, variables, param_estimates=maxim$par)
+      effect_comparator[j] <- calculate_effect(comparator, variables, param_estimates=maxim$par)
+
+      # Calculate the ATE
+      bootest[j] <- effect_comparator[j] - effect_ref_int[j]
+
+    }
+    #saving output for the non-parallel setting;
+    return(list(
+      mean = mean(bootest),
+      sd = sqrt(var(bootest)),
+      quantile = quantile(bootest, probs = c(0.025, 0.975)),
+      bootdata <- data.frame(effect_ref_int, effect_comparator, bootest)
+    ))
+
+  }
 }
 
 
 #test;
 testdata <- readr::read_csv("R/continuous_outcome_data.csv")
 testdata$a_3 <- rbinom(n=length(testdata$y),1,p=0.4)
-bayesm_bootstrap <- function(ymodel = "y ~ a_1+a_2+a_1*a_2*a_3 + a_2*a_3",
-                             nvisit = 10,
-                             intervention = list(ref_int = c(rep(0,n_visits)),
-                                                 comparator = c(rep(1,n_visits))), # just an example for 2 vectors of treatments
-                             ref_int = c(rep(0,n_visits)), # An example of never treated
-                             family = "gaussian", # "gaussian" or "binomial"
-                             data = testdata,
-                             wmean = rep(1, 1000),
-                             nboot = 1000,
-                             optim_method = 'BFGS')
-
-
+testdata$a_4 <- rbinom(n=length(testdata$y),1,p=0.6)
+start<-Sys.time()
+model1 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2+a_3+a_4,
+                 nvisit = 4,
+                 ref_int = c(rep(0,4)),
+                 comparator = c(rep(1,4)),
+                 family = "gaussian",
+                 data = testdata,
+                 wmean = rep(1, 1000),
+                 nboot = 1000,
+                 optim_method = "BFGS",
+                 parallel = FALSE,
+                 ncore = 10)
+Sys.time()-start
+bootoutput<-model1[[4]]
