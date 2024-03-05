@@ -182,22 +182,22 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     for (j in 1:nboot) {
       alpha <- as.numeric(rdirichlet(1, rep(1.0, length(Y))))
       inits1 <- c(rep(0.1, length(A)), 4)  # Default initial values, 4 is for the SD;
-      # maxim <- optim(inits1,
-      #                fn = wfn,
-      #                Y = Y,
-      #                A = A,
-      #                weight = alpha * wmean,
-      #                control = list(fnscale = -1),
-      #                method = optim_method,
-      #                hessian = FALSE)
-
-      maxim <- optimx(inits1,
+      maxim <- optim(inits1,
                      fn = wfn,
                      Y = Y,
                      A = A,
                      weight = alpha * wmean,
                      control = list(fnscale = -1),
-                     method = optim_method)
+                     method = optim_method,
+                     hessian = FALSE)
+
+      # maxim <- optimx(inits1,
+      #                fn = wfn,
+      #                Y = Y,
+      #                A = A,
+      #                weight = alpha * wmean,
+      #                control = list(fnscale = -1),
+      #                method = optim_method)
 
       # maxim <- nlminb(start = inits1,
       #                 objective = wfn,
@@ -212,19 +212,19 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
       #                             maxeval = 1500))
 
       # optim()
-      # names(maxim$par) <- c("(Intercept)", variables$predictors)
-      #
-      # # Calculate the effects
-      # effect_ref_int[j] <- calculate_effect(ref_int, variables, param_estimates=maxim$par)
-      # effect_comparator[j] <- calculate_effect(comparator, variables, param_estimates=maxim$par)
-
-      #optimx()
-      param_vector = unlist(lapply(1:length(inits1), function(i) maxim[[paste0("p", i)]]))
-      names(param_vector) <- c("(Intercept)", variables$predictors)
+      names(maxim$par) <- c("(Intercept)", variables$predictors)
 
       # Calculate the effects
-      effect_ref_int[j] <- calculate_effect(ref_int, variables, param_estimates=param_vector)
-      effect_comparator[j] <- calculate_effect(comparator, variables, param_estimates=param_vector)
+      effect_ref_int[j] <- calculate_effect(ref_int, variables, param_estimates=maxim$par)
+      effect_comparator[j] <- calculate_effect(comparator, variables, param_estimates=maxim$par)
+
+      # #optimx()
+      # param_vector = unlist(lapply(1:length(inits1), function(i) maxim[[paste0("p", i)]]))
+      # names(param_vector) <- c("(Intercept)", variables$predictors)
+      #
+      # # Calculate the effects
+      # effect_ref_int[j] <- calculate_effect(ref_int, variables, param_estimates=param_vector)
+      # effect_comparator[j] <- calculate_effect(comparator, variables, param_estimates=param_vector)
 
       #nloptr()
       # names(maxim$solution) <- c("(Intercept)", variables$predictors)
@@ -250,6 +250,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
 
 
 #test;
+# setwd("C:/Users/YanXi/Downloads")
 testdata <- readr::read_csv("R/continuous_outcome_data.csv")
 testdata$a_3 <- rbinom(n=length(testdata$y),1,p=0.4)
 testdata$a_4 <- rbinom(n=length(testdata$y),1,p=0.6)
@@ -267,3 +268,4 @@ model1 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2+a_3+a_4,
                  ncore = 10)
 Sys.time()-start
 bootoutput = model1$bootdata
+
