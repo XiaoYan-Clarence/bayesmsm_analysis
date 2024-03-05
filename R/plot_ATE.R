@@ -15,8 +15,8 @@
 plot_ATE <- function(bootdata,
                      col_density = "blue",
                      fill_density = "lightblue",
-                     main = "Density of ATE Estimates",
-                     xlab = "ATE", ylab = "Density",
+                     main = "Posterior Predictive Distribution of ATE",
+                     xlab = "ATE", ylab = "Posterior Predictive Distribution",
                      xlim = NULL, ylim = NULL, ...) {
   # Check if bootdata is a data frame with a specific column or a vector
   if (is.data.frame(bootdata) && "ATE" %in% names(bootdata)) {
