@@ -98,7 +98,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     }
   }
 
-  A <- cbind(1, A_base)
+
   colnames(A)[2:ncol(A)]<- variables$predictors
 
   wloglik_normal<-function(param,
@@ -113,14 +113,30 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     mmat <- as.matrix(A) #design matrix of the causal outcome model, e.g., A = cbind(1, a_1, a_2);
     logl<- -0.5*log(sigma^2) - 0.5*((Y - mmat%*%theta)^2)/(sigma^2)
     wlogl<-sum(weight*logl)
+    return(wlogl)
+  }
 
+  wloglik_binomial <- function(param,
+                               Y,
+                               A,
+                               weight){
+    # number of observations;
+    n <- length(Y)
+    beta <- param[1:dim(A)[2]] # causal parameters on the log-odds scale (no sigma for binomial?)
+    mmat <- as.matrix(A)
+    eta<-mmat %*% beta # linear predictor
+    p <- 1 / (1 + exp(-eta))
+    logl <- Y * log(p + 0.0001) + (1 - Y) * log(1 - p + 0.0001)
+    wlogl<-sum(weight*logl)
     return(wlogl)
   }
 
   if (family == "gaussian"){
     wfn = wloglik_normal
+    inits1 <- c(rep(0.1, length(A)), 4)  # Default initial values, 4 is for the SD;
   } else if (family == "binomial"){
     wfn = wloglik_binomial
+    inits1 <- c(rep(0.1, length(A)))
   } else if (!family %in% c("gaussian","binomial")){
     stop("Current version only handles continuous (gaussian) and binary (binomial) outcomes.")
   }
@@ -141,7 +157,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     results.it <- matrix(NA, 1, 3) #result matrix, three columns for bootest, effect_ref, and effect_comp;
 
     alpha <- as.numeric(rdirichlet(1, rep(1.0, length(Y))))
-    inits1 <- c(rep(0.1, length(A)), 4)  # Default initial values, 4 is for the SD;
+
     maxim <- optim(inits1,
                    fn = wfn,
                    Y = Y,
@@ -181,7 +197,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
 
     for (j in 1:nboot) {
       alpha <- as.numeric(rdirichlet(1, rep(1.0, length(Y))))
-      inits1 <- c(rep(0.1, length(A)), 4)  # Default initial values, 4 is for the SD;
+
       maxim <- optim(inits1,
                      fn = wfn,
                      Y = Y,
@@ -259,7 +275,7 @@ model1 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2+a_3+a_4,
                  nvisit = 4,
                  ref_int = c(rep(0,4)),
                  comparator = c(rep(1,4)),
-                 family = "gaussian",
+                 family = "binomial",
                  data = testdata,
                  wmean = rep(1, 1000),
                  nboot = 1000,
