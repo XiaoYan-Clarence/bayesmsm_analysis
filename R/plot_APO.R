@@ -38,11 +38,30 @@ plot_posterior <- function(input, effect_type, ...) {
   titles <- c(effect_comparator = "Comparator Level", effect_ref_int = "Reference Level")
   colors <- c(effect_comparator = "blue", effect_ref_int = "red")
 
+  # # Plotting
+  # plot(density_effect, main = paste("Average Potential Outcome (APO) of", titles[effect_type]), xlab = "Effect", ylab = "Density", col = colors[effect_type], lwd = 2, ...)
+  #
+  # # Legend
+  # legend("topright", legend = titles[effect_type], col = colors[effect_type], lwd = 2)
+
+  # Calculate mean and median
+  mean_effect <- mean(effect[[1]])
+  median_effect <- median(effect[[1]])
+
   # Plotting
   plot(density_effect, main = paste("Average Potential Outcome (APO) of", titles[effect_type]), xlab = "Effect", ylab = "Density", col = colors[effect_type], lwd = 2, ...)
 
-  # Legend
-  legend("topright", legend = titles[effect_type], col = colors[effect_type], lwd = 2)
+  # Add a vertical line for the mean and median
+  abline(v = mean_effect, col = "darkgrey", lty = 3)
+  abline(v = median_effect, col = "darkgrey", lty = 4)
+
+  # Legend with mean and median
+  legend_text <- c(titles[effect_type],
+                   paste("Mean:", round(mean_effect, 3)),
+                   paste("Median:", round(median_effect, 3)))
+
+  legend("topright", legend = legend_text, col = c(colors[effect_type], "darkgrey", "darkgrey"),
+         lwd = 2, lty = c(1, 3, 4))
 }
 
 

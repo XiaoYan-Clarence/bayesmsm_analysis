@@ -46,6 +46,10 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     install.packages("doParallel",repos="http://cran.r-project.org")
     library(doParallel)
   }
+  if (!require(MCMCpack)){
+    install.packages("MCMCpack",repos="http://cran.r-project.org")
+    library(MCMCpack)
+  }
 
   # check
   # return error message if the input weight vector has different length comparing to the outcome Y;
@@ -77,7 +81,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     list(response = response_name, predictors = predictor_names)
    }
 
-  source("R/rdirichlet.R")
+  # source("R/rdirichlet.R")
   source("R/calculate_effect.R")
 
   variables <- extract_variables(ymodel) # Extract variable names from the formula
@@ -98,7 +102,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     }
   }
 
-
+  A <- cbind(1, A_base)
   colnames(A)[2:ncol(A)]<- variables$predictors
 
   wloglik_normal<-function(param,
@@ -149,11 +153,6 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
 
   results <- foreach(i=1:nboot, .combine = 'rbind') %dopar% {
 
-    if (!require(MCMCpack)){
-      install.packages("MCMCpack",repos="http://cran.r-project.org")
-      library(MCMCpack)
-    }
-
     results.it <- matrix(NA, 1, 3) #result matrix, three columns for bootest, effect_ref, and effect_comp;
 
     alpha <- as.numeric(rdirichlet(1, rep(1.0, length(Y))))
@@ -184,7 +183,9 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     mean = mean(results[,4]),
     sd = sqrt(var(results[,4])),
     quantile = quantile(results[,4], probs = c(0.025, 0.975)),
-    bootdata <- data.frame(results[,-1])
+    bootdata <- data.frame(results[,-1]),
+    reference = ref_int,
+    comparator = comparator
   ))
 
   }
@@ -258,7 +259,9 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
       mean = mean(bootest),
       sd = sqrt(var(bootest)),
       quantile = quantile(bootest, probs = c(0.025, 0.975)),
-      bootdata = data.frame(effect_ref_int, effect_comparator, ATE=bootest)
+      bootdata = data.frame(effect_ref_int, effect_comparator, ATE=bootest),
+      reference = ref_int,
+      comparator = comparator
     ))
 
   }
@@ -266,6 +269,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
 
 
 #test;
+# Continuous outcome
 # setwd("C:/Users/YanXi/Downloads")
 testdata <- readr::read_csv("R/continuous_outcome_data.csv")
 testdata$a_3 <- rbinom(n=length(testdata$y),1,p=0.4)
@@ -275,7 +279,7 @@ model1 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2+a_3+a_4,
                  nvisit = 4,
                  ref_int = c(rep(0,4)),
                  comparator = c(rep(1,4)),
-                 family = "binomial",
+                 family = "gaussian",
                  data = testdata,
                  wmean = rep(1, 1000),
                  nboot = 1000,
@@ -284,4 +288,75 @@ model1 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2+a_3+a_4,
                  ncore = 10)
 Sys.time()-start
 bootoutput = model1$bootdata
+
+mean(bootoutput$ATE)
+var(bootoutput$ATE)
+sqrt(var(bootoutput$ATE))
+quantile(bootoutput$ATE, probs=c(0.025,0.975))
+
+# Continuous outcome; original dataset (same as that on Quarto)
+# setwd("C:/Users/YanXi/Downloads")
+testdata2 <- readr::read_csv("R/continuous_outcome_data.csv")
+start<-Sys.time()
+model2 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2,
+                           nvisit = 2,
+                           ref_int = c(rep(0,2)),
+                           comparator = c(rep(1,2)),
+                           family = "gaussian",
+                           data = testdata2,
+                           wmean = rep(1, 1000),
+                           nboot = 1000,
+                           optim_method = "BFGS",
+                           parallel = FALSE,
+                           ncore = 6)
+Sys.time()-start
+bootoutput2 = model2$bootdata
+
+mean(bootoutput2$ATE)
+var(bootoutput2$ATE)
+sqrt(var(bootoutput2$ATE))
+quantile(bootoutput2$ATE, probs=c(0.025,0.975))
+# Result
+# > mean(bootoutput2$ATE)
+# [1] -3.164354
+# > var(bootoutput2$ATE)
+# [1] 0.009445813
+# > sqrt(var(bootoutput2$ATE))
+# [1] 0.09718957
+# > quantile(bootoutput2$ATE, probs=c(0.025,0.975))
+# 2.5%     97.5%
+#   -3.356886 -2.992084
+
+# Binary outcome; original dataset
+# setwd("C:/Users/YanXi/Downloads")
+testdata3 <- readr::read_csv("R/binary_outcome_data.csv")
+start<-Sys.time()
+model3 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2,
+                           nvisit = 2,
+                           ref_int = c(rep(0,2)),
+                           comparator = c(rep(1,2)),
+                           family = "binomial",
+                           data = testdata3,
+                           wmean = rep(1, 1000),
+                           nboot = 1000,
+                           optim_method = "BFGS",
+                           parallel = FALSE,
+                           ncore = 6)
+Sys.time()-start
+bootoutput3 = model3$bootdata
+
+mean(bootoutput3$ATE)
+var(bootoutput3$ATE)
+sqrt(var(bootoutput3$ATE))
+quantile(bootoutput3$ATE, probs=c(0.025,0.975))
+# Result
+# > mean(bootoutput3$ATE)
+# [1] -0.4532632
+# > var(bootoutput3$ATE)
+# [1] 0.03288662
+# > sqrt(var(bootoutput3$ATE))
+# [1] 0.1813467
+# > quantile(bootoutput3$ATE, probs=c(0.025,0.975))
+# 2.5%       97.5%
+#   -0.80324170 -0.09851375
 
