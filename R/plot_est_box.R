@@ -15,7 +15,7 @@ plot_est_box <- function(input, ...) {
   }
 
   # Adjust margins if necessary
-  par(mar = c(6, 5, 5,4) + 0.1) # Adjust the last value if text is plotted outside; bottom, left, top, and right margins
+  par(mar = c(5, 4, 4, 3) + 0.1) # Adjust the last value if text is plotted outside; bottom, left, top, and right margins
 
   # Calculate means and standard deviations
   means <- sapply(bootdata[required_columns], mean)
