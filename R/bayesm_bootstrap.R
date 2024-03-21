@@ -16,8 +16,8 @@
 
 bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
                              nvisit = 10,
-                             ref_int = c(rep(0,n_visits)), # An example of never treated
-                             comparator = c(rep(1,n_visits)),
+                             reference = c(rep(0,nvisits)), # An example of never treated
+                             comparator = c(rep(1,nvisits)),
                              family = "gaussian", # "gaussian" or "binomial"
                              data = testdata,
                              wmean = rep(1, 1000),
@@ -29,7 +29,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
   #testing;
   # ymodel = y ~ a_1*a_2*a_3*a_4;
   # nvisit = 4;
-  # ref_int = c(rep(0,4));
+  # reference = c(rep(0,4));
   # comparator = c(rep(1,4));
   # family = "gaussian";
   # data = testdata;
@@ -57,7 +57,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     stop("The length of the weight vector does not match the length of Y.")
   }
 
-  # # return error message if ref_int or intervention n_visit differenct from nvisit;
+  # # return error message if reference or intervention n_visit differenct from nvisit;
   # if (xxx) {
   #   stop("The potential outcome treatment sequence does not match with nvisit in length")
   # }
@@ -146,7 +146,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
   }
 
 
-  #parallel computing only for this bootstrap step;
+  # parallel computing only for this bootstrap step;
   if (parallel == TRUE){
   numCores <- ncore
   registerDoParallel(cores = numCores)
@@ -169,7 +169,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     names(maxim$par) <- c("(Intercept)", variables$predictors)
 
     # Calculate the effects
-    results.it[1,1] <- calculate_effect(ref_int, variables, param_estimates=maxim$par)
+    results.it[1,1] <- calculate_effect(reference, variables, param_estimates=maxim$par)
     results.it[1,2] <- calculate_effect(comparator, variables, param_estimates=maxim$par)
     # Calculate the ATE
     results.it[1,3] <- results.it[1,1] - results.it[1,2]
@@ -178,13 +178,13 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     cbind(i,results.it) #end of parallel;
   }
 
-  #saving output for the non-parallel setting;
+  #saving output for the parallel setting;
   return(list(
     mean = mean(results[,4]),
     sd = sqrt(var(results[,4])),
     quantile = quantile(results[,4], probs = c(0.025, 0.975)),
     bootdata <- data.frame(results[,-1]),
-    reference = ref_int,
+    reference = reference,
     comparator = comparator
   ))
 
@@ -193,7 +193,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
   else if (parallel == FALSE) {
 
     bootest <- numeric(nboot)
-    effect_ref_int <- numeric(nboot)
+    effect_reference <- numeric(nboot)
     effect_comparator <- numeric(nboot)
 
     for (j in 1:nboot) {
@@ -232,7 +232,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
       names(maxim$par) <- c("(Intercept)", variables$predictors)
 
       # Calculate the effects
-      effect_ref_int[j] <- calculate_effect(ref_int, variables, param_estimates=maxim$par)
+      effect_reference[j] <- calculate_effect(reference, variables, param_estimates=maxim$par)
       effect_comparator[j] <- calculate_effect(comparator, variables, param_estimates=maxim$par)
 
       # #optimx()
@@ -240,18 +240,18 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
       # names(param_vector) <- c("(Intercept)", variables$predictors)
       #
       # # Calculate the effects
-      # effect_ref_int[j] <- calculate_effect(ref_int, variables, param_estimates=param_vector)
+      # effect_reference[j] <- calculate_effect(reference, variables, param_estimates=param_vector)
       # effect_comparator[j] <- calculate_effect(comparator, variables, param_estimates=param_vector)
 
       #nloptr()
       # names(maxim$solution) <- c("(Intercept)", variables$predictors)
       #
       # # Calculate the effects
-      # effect_ref_int[j] <- calculate_effect(ref_int, variables, param_estimates=maxim$solution)
+      # effect_reference[j] <- calculate_effect(reference, variables, param_estimates=maxim$solution)
       # effect_comparator[j] <- calculate_effect(comparator, variables, param_estimates=maxim$solution)
 
       # Calculate the ATE
-      bootest[j] <- effect_comparator[j] - effect_ref_int[j]
+      bootest[j] <- effect_comparator[j] - effect_reference[j]
 
     }
     #saving output for the non-parallel setting;
@@ -259,8 +259,8 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
       mean = mean(bootest),
       sd = sqrt(var(bootest)),
       quantile = quantile(bootest, probs = c(0.025, 0.975)),
-      bootdata = data.frame(effect_ref_int, effect_comparator, ATE=bootest),
-      reference = ref_int,
+      bootdata = data.frame(effect_reference, effect_comparator, ATE=bootest),
+      reference = reference,
       comparator = comparator
     ))
 
@@ -277,7 +277,7 @@ testdata$a_4 <- rbinom(n=length(testdata$y),1,p=0.6)
 start<-Sys.time()
 model1 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2+a_3+a_4,
                  nvisit = 4,
-                 ref_int = c(rep(0,4)),
+                 reference = c(rep(0,4)),
                  comparator = c(rep(1,4)),
                  family = "gaussian",
                  data = testdata,
@@ -300,7 +300,7 @@ testdata2 <- readr::read_csv("R/continuous_outcome_data.csv")
 start<-Sys.time()
 model2 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2,
                            nvisit = 2,
-                           ref_int = c(rep(0,2)),
+                           reference = c(rep(0,2)),
                            comparator = c(rep(1,2)),
                            family = "gaussian",
                            data = testdata2,
@@ -333,7 +333,7 @@ testdata3 <- readr::read_csv("R/binary_outcome_data.csv")
 start<-Sys.time()
 model3 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2,
                            nvisit = 2,
-                           ref_int = c(rep(0,2)),
+                           reference = c(rep(0,2)),
                            comparator = c(rep(1,2)),
                            family = "binomial",
                            data = testdata3,

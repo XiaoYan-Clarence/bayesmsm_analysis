@@ -6,7 +6,7 @@
 #' @return a graph
 #' @export
 #'
-plot_posterior <- function(input, effect_type, ...) {
+plot_APO <- function(input, effect_type, ...) {
   # Validate input
   if ("bootdata" %in% names(input)) {
     bootdata <- input$bootdata
@@ -15,17 +15,14 @@ plot_posterior <- function(input, effect_type, ...) {
   } else {
     stop("Input must be a data frame or a model object containing a 'bootdata' data frame.")
   }
-
-  if (!is.data.frame(bootdata) || !("effect_comparator" %in% names(bootdata)) || !("effect_ref_int" %in% names(bootdata))) {
-    stop("bootdata must be a data frame containing 'effect_comparator' and 'effect_ref_int' columns.")
+  if (!is.data.frame(bootdata) || !("effect_comparator" %in% names(bootdata)) || !("effect_reference" %in% names(bootdata))) {
+    stop("bootdata must be a data frame containing 'effect_comparator' and 'effect_reference' columns.")
   }
-
   if (!is.character(effect_type) || length(effect_type) != 1) {
     stop("effect_type must be a single character string specifying the effect to plot.")
   }
-
-  if (!effect_type %in% c("effect_comparator", "effect_ref_int")) {
-    stop("effect_type must be either 'effect_comparator' or 'effect_ref_int'.")
+  if (!effect_type %in% c("effect_comparator", "effect_reference")) {
+    stop("effect_type must be either 'effect_comparator' or 'effect_reference'.")
   }
 
   # Extract the relevant column
@@ -35,8 +32,8 @@ plot_posterior <- function(input, effect_type, ...) {
   density_effect <- density(effect[[1]])
 
   # Define titles and colors based on effect_type
-  titles <- c(effect_comparator = "Comparator Level", effect_ref_int = "Reference Level")
-  colors <- c(effect_comparator = "blue", effect_ref_int = "red")
+  titles <- c(effect_comparator = "Comparator Level", effect_reference = "Reference Level")
+  colors <- c(effect_comparator = "blue", effect_reference = "red")
 
   # # Plotting
   # plot(density_effect, main = paste("Average Potential Outcome (APO) of", titles[effect_type]), xlab = "Effect", ylab = "Density", col = colors[effect_type], lwd = 2, ...)
@@ -67,8 +64,8 @@ plot_posterior <- function(input, effect_type, ...) {
 
 
 # Test
-plot_posterior(model1$bootdata, effect_type = "effect_comparator")
-plot_posterior(model1, effect_type = "effect_ref_int")
-# plot_posterior(model1$bootdata)
+plot_APO(model1$bootdata, effect_type = "effect_comparator")
+plot_APO(model1, effect_type = "effect_reference")
+# plot_APO(model1$bootdata)
 
 

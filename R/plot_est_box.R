@@ -9,9 +9,9 @@ plot_est_box <- function(input, ...) {
   }
 
   # Validate bootdata
-  required_columns <- c("effect_comparator", "effect_ref_int", "ATE")
+  required_columns <- c("effect_comparator", "effect_reference", "ATE")
   if (!all(required_columns %in% names(bootdata))) {
-    stop("bootdata must contain 'effect_comparator', 'effect_ref_int', and 'ATE' columns.")
+    stop("bootdata must contain 'effect_comparator', 'effect_reference', and 'ATE' columns.")
   }
 
   # Adjust margins if necessary
