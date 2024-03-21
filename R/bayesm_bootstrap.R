@@ -27,15 +27,15 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
                              ncore = 4){
 
   #testing;
-  # ymodel = y ~ a_1*a_2*a_3*a_4;
-  # nvisit = 4;
-  # reference = c(rep(0,4));
-  # comparator = c(rep(1,4));
-  # family = "gaussian";
-  # data = testdata;
-  # wmean = rep(1, 1000);
-  # nboot = 1000;
-  # optim_method = "BFGS";
+  ymodel = y ~ a_1*a_2;
+  nvisit = 2;
+  reference = c(rep(0,2));
+  comparator = c(rep(1,2));
+  family = "binomial";
+  data = testdata;
+  wmean = rep(1, 1000);
+  nboot = 1000;
+  optim_method = "BFGS";
 
   # first thing first load all the required R packages;
   if (!require(foreach)){
@@ -129,8 +129,9 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     beta <- param[1:dim(A)[2]] # causal parameters on the log-odds scale (no sigma for binomial?)
     mmat <- as.matrix(A)
     eta<-mmat %*% beta # linear predictor
-    p <- 1 / (1 + exp(-eta))
-    logl <- Y * log(p + 0.0001) + (1 - Y) * log(1 - p + 0.0001)
+    # p <- 1 / (1 + exp(-eta))
+    logl <- Y*eta - log(1+exp(eta))
+      # Y * log(p + 0.0001) + (1 - Y) * log(1 - p + 0.0001)
     wlogl<-sum(weight*logl)
     return(wlogl)
   }
