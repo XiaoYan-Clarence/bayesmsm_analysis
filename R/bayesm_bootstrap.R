@@ -141,7 +141,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     inits1 <- c(rep(0.1, length(A)), 4)  # Default initial values, 4 is for the SD;
   } else if (family == "binomial"){
     wfn = wloglik_binomial
-    inits1 <- c(rep(0.1, length(A)))
+    inits1 <- c(rep(1, length(A)))
   } else if (!family %in% c("gaussian","binomial")){
     stop("Current version only handles continuous (gaussian) and binary (binomial) outcomes.")
   }
