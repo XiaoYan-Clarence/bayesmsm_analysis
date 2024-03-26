@@ -59,11 +59,12 @@ plot_APO <- function(input, effect_type, ...) {
 
   # Legend with mean and median
   legend_text <- c(titles[effect_type],
-                   paste("Mean:", round(mean_effect, 3))
-                   # ,paste("Median:", round(median_effect, 3))
-                   )
+                   paste("Mean:", round(mean_effect, 3)),
+                   # ,paste("Median:", round(median_effect, 3)
+                   paste("95% CI: [", round(ci[1], 3), ",", round(ci[2], 3), "]"))
+
   # Update the legend text to include the 95% CI
-  legend_text <- c(legend_text, paste("95% CI: [", round(ci[1], 3), ",", round(ci[2], 3), "]"))
+  # legend_text <- c(legend_text, paste("95% CI: [", round(ci[1], 3), ",", round(ci[2], 3), "]"))
 
   legend("topright", legend = legend_text,
          col = c(colors[effect_type], "purple"
