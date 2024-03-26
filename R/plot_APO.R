@@ -35,30 +35,41 @@ plot_APO <- function(input, effect_type, ...) {
   titles <- c(effect_comparator = "Comparator Level", effect_reference = "Reference Level")
   colors <- c(effect_comparator = "blue", effect_reference = "red")
 
-  # # Plotting
-  # plot(density_effect, main = paste("Average Potential Outcome (APO) of", titles[effect_type]), xlab = "Effect", ylab = "Density", col = colors[effect_type], lwd = 2, ...)
-  #
-  # # Legend
-  # legend("topright", legend = titles[effect_type], col = colors[effect_type], lwd = 2)
-
   # Calculate mean and median
   mean_effect <- mean(effect[[1]])
-  median_effect <- median(effect[[1]])
+  # median_effect <- median(effect[[1]])
 
-  # Plotting
+  # Calculate CI
+  ci <- quantile(effect[[1]], probs = c(0.025, 0.975))
+  density_ci <- density(effect[[1]], from = ci[1], to = ci[2])
+
+  # Plot the density curve
   plot(density_effect, main = paste("Average Potential Outcome (APO) of", titles[effect_type]), xlab = "Effect", ylab = "Density", col = colors[effect_type], lwd = 2, ...)
 
+  # Shade the area under the curve within the 95% CI
+  polygon(c(density_ci$x, rev(density_ci$x)), c(rep(min(density_effect$y), length(density_ci$x)), rev(density_ci$y)), col = rgb(0, 0, 1, alpha = 0.3))
+
   # Add a vertical line for the mean and median
-  abline(v = mean_effect, col = "darkgrey", lty = 3)
-  abline(v = median_effect, col = "darkgrey", lty = 4)
+  abline(v = mean_effect, col = "purple", lty = 3)
+  # abline(v = median_effect, col = "darkgrey", lty = 4)
+
+  # Add vertical lines for the 95% CI bounds
+  abline(v = ci[1], col = "darkgreen", lty = 2)
+  abline(v = ci[2], col = "darkgreen", lty = 2)
 
   # Legend with mean and median
   legend_text <- c(titles[effect_type],
-                   paste("Mean:", round(mean_effect, 3)),
-                   paste("Median:", round(median_effect, 3)))
+                   paste("Mean:", round(mean_effect, 3))
+                   # ,paste("Median:", round(median_effect, 3))
+                   )
+  # Update the legend text to include the 95% CI
+  legend_text <- c(legend_text, paste("95% CI: [", round(ci[1], 3), ",", round(ci[2], 3), "]"))
 
-  legend("topright", legend = legend_text, col = c(colors[effect_type], "darkgrey", "darkgrey"),
-         lwd = 2, lty = c(1, 3, 4))
+  legend("topright", legend = legend_text,
+         col = c(colors[effect_type], "purple"
+         # , "darkgrey"
+         , "darkgreen"),
+         lwd = 2, lty = c(1, 3, 4, 2))
 }
 
 
