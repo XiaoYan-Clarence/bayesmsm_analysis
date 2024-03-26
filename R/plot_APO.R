@@ -70,7 +70,7 @@ plot_APO <- function(input, effect_type, ...) {
          col = c(colors[effect_type], "purple"
          # , "darkgrey"
          , "darkgreen"),
-         lwd = 2, lty = c(1, 3, 4, 2))
+         lwd = 2, lty = c(1, 3, 2))
 }
 
 
