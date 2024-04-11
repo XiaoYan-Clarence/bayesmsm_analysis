@@ -155,7 +155,8 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
   numCores <- ncore
   registerDoParallel(cores = numCores)
 
-  results <- foreach(i=1:nboot, .combine = 'rbind') %dopar% {
+  results <- foreach(i=1:nboot, .combine = 'rbind',
+                     .packages = 'MCMCpack') %dopar% {
 
     results.it <- matrix(NA, 1, 3) #result matrix, three columns for bootest, effect_ref, and effect_comp;
 
@@ -180,22 +181,23 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     # results.it[1,3] <- results.it[1,1] - results.it[1,2]
     if (family == "binomial") { # binary outcomes
       if (estimand == "RD") { # Risk Difference
-        bootest[j] <- expit(results.it[1,1]) - expit(results.it[1,2])
+        bootest[j] <- expit(results.it[1,2]) - expit(results.it[1,1])
       } else if (estimand == "RR") {
-        bootest[j] <- expit(results.it[1,1]) / expit(results.it[1,2])
+        bootest[j] <- expit(results.it[1,2]) / expit(results.it[1,1])
       } else if (estimand == "OR") {
-        bootest[j] <- (expit(results.it[1,1]) / (1 - expit(results.it[1,1]))) /
-                      (expit(results.it[1,2]) / (1 - expit(results.it[1,2])))
+        bootest[j] <- (expit(results.it[1,2]) / (1 - expit(results.it[1,2]))) /
+                      (expit(results.it[1,1]) / (1 - expit(results.it[1,1])))
       }
 
     } else if (family == "gaussian"){ # continuous outcomes
       if (estimand == "RD") { # Risk Difference
-        results.it[1,3] <- results.it[1,1] - results.it[1,2]
-      } else if (estimand == "RR") {
-        results.it[1,3] <- results.it[1,1] / results.it[1,2]
-      } else if (estimand == "OR") {
-        bootest[j] <- (results.it[1,1] / (1 - results.it[1,1])) /
-                      (results.it[1,2] / (1 - results.it[1,2]))
+        results.it[1,3] <- results.it[1,2] - results.it[1,1]
+      }
+      # else if (estimand == "RR") {
+      #   results.it[1,3] <- results.it[1,1] / results.it[1,2]
+      # } else if (estimand == "OR") {
+      #   bootest[j] <- (results.it[1,1] / (1 - results.it[1,1])) /
+      #                 (results.it[1,2] / (1 - results.it[1,2]))
       }
 
     # combining parallel results;
@@ -252,7 +254,6 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
       #                             xtol_rel = 1.0e-8,
       #                             maxeval = 1500))
 
-      # optim()
       names(maxim$par) <- c("(Intercept)", variables$predictors)
 
       # Calculate the effects
@@ -288,13 +289,10 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
       } else if (family == "gaussian"){ # continuous outcomes
         if (estimand == "RD") { # Risk Difference
           bootest[j] <- effect_comparator[j] - effect_reference[j]
-        } else if (estimand == "RR") {
-          bootest[j] <- effect_comparator[j] / effect_reference[j]
-        } else if (estimand == "OR") {
-          bootest[j] <- (effect_comparator[j] / (1 - effect_comparator[j])) /
-                        (effect_reference[j] / (1 - effect_reference[j]))
+        } else if (estimand %in% c("RR","OR")) {
+          # print a warning message that say for continuous outcome, RR and OR specification are ignored. RD is the causal estimate;
+          bootest[j] <- effect_comparator[j] - effect_reference[j]
         }
-
       }
 
 
@@ -376,27 +374,28 @@ quantile(bootoutput2$ATE, probs=c(0.025,0.975))
 
 # Binary outcome; original dataset
 # setwd("C:/Users/YanXi/Downloads")
-testdata3 <- readr::read_csv("R/binary_outcome_data.csv")
-start<-Sys.time()
-model3 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2,
-                           nvisit = 2,
-                           reference = c(rep(0,2)),
-                           comparator = c(rep(1,2)),
-                           family = "binomial",
-                           data = testdata3,
-                           wmean = rep(1, 1000),
-                           nboot = 1000,
-                           optim_method = "BFGS",
-                           estimand = "RD",
-                           parallel = FALSE,
-                           ncore = 6)
-Sys.time()-start
-bootoutput3 = model3$bootdata
+# testdata3 <- readr::read_csv("R/binary_outcome_data.csv")
+# start<-Sys.time()
+# model3 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2,
+#                            nvisit = 2,
+#                            reference = c(rep(0,2)),
+#                            comparator = c(rep(1,2)),
+#                            family = "binomial",
+#                            data = testdata3,
+#                            wmean = rep(1, 1000),
+#                            nboot = 1000,
+#                            optim_method = "BFGS",
+#                            estimand = "RD",
+#                            parallel = FALSE,
+#                            ncore = 6)
+# Sys.time()-start
+# bootoutput3 = model3$bootdata
+#
+# mean(bootoutput3$ATE)
+# var(bootoutput3$ATE)
+# sqrt(var(bootoutput3$ATE))
+# quantile(bootoutput3$ATE, probs=c(0.025,0.975))
 
-mean(bootoutput3$ATE)
-var(bootoutput3$ATE)
-sqrt(var(bootoutput3$ATE))
-quantile(bootoutput3$ATE, probs=c(0.025,0.975))
 # Result
 # > mean(bootoutput3$ATE)
 # [1] -0.1044813
@@ -407,4 +406,8 @@ quantile(bootoutput3$ATE, probs=c(0.025,0.975))
 # > quantile(bootoutput3$ATE, probs=c(0.025,0.975))
 # 2.5%       97.5%
 #   -0.18221276 -0.02746802
+
+fmodel<-glm(Y~a_1+a_2, data = )
+APO11 <-predict(fmodel, newdata = data.frame(a_1=1, a_2=1), type = response)
+APO00 <-predict(fmodel, newdata = data.frame(a_1=0, a_2=0), type = response)
 

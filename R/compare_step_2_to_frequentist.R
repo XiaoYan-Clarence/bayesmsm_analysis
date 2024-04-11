@@ -20,6 +20,8 @@ msm_design <- svydesign(~1, weights = Wmsm$weights, data = testdata_binary)
 fitMSM <- svyglm(y ~ a_1*a_2, design = msm_design)
 # summary(fitMSM)
 
+
+
 APO_11 <- predict(fitMSM, newdata = data.frame(a_1=1,a_2=1), type = "response")
 APO_00 <- predict(fitMSM, newdata = data.frame(a_1=0,a_2=0), type = "response")
 APO_11 - APO_00
