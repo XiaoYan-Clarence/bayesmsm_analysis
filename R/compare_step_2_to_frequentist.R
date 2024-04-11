@@ -91,6 +91,14 @@ for (j in 1:nboot) {
 mean(bootest)
 sd(bootest)
 
+# > mean(bootest)
+# [1] -0.108839
+# > sd(bootest)
+# [1] 0.04373782
+
+
+
+
 
 
 

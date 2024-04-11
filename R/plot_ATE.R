@@ -15,7 +15,7 @@
 plot_ATE <- function(bootdata,
                      col_density = "blue",
                      fill_density = "lightblue",
-                     main = "Posterior Predictive Distribution of ATE",
+                     main = "Posterior Predictive Distribution of Average Treatment Effect (ATE）",
                      xlab = "ATE", ylab = "Posterior Predictive Distribution",
                      xlim = NULL, ylim = NULL, ...) {
   # Check if bootdata is a data frame with a specific column or a vector
@@ -27,18 +27,36 @@ plot_ATE <- function(bootdata,
     stop("bootdata must be a vector of ATE estimates or a data frame with an 'ATE' column.")
   }
 
-  # Calculate the density of ATE estimates
+  # # Calculate the density of ATE estimates
+  # ate_density <- density(ate_values)
+  #
+  # # Plot the density
+  # plot(ate_density, col = col_density, main = main, xlab = xlab, ylab = ylab, xlim = xlim, ylim = ylim, ...)
+  # polygon(ate_density, col = fill_density, border = col_density)
+  #
+  # # Add a vertical line at the mean ATE value
+  # abline(v = mean(ate_values), col = "red", lwd = 2, lty = 2)
+  #
+  # # Add a legend
+  # legend("topright", legend = c("ATE Density", "Mean ATE"), fill = c(fill_density, NA), border = c(col_density, "red"), lty = c(NA, 2), lwd = c(NA, 2))
+
   ate_density <- density(ate_values)
+  ci <- quantile(ate_values, probs = c(0.025, 0.975))
+  density_ci <- density(ate_values, from = ci[1], to = ci[2])
 
-  # Plot the density
   plot(ate_density, col = col_density, main = main, xlab = xlab, ylab = ylab, xlim = xlim, ylim = ylim, ...)
-  polygon(ate_density, col = fill_density, border = col_density)
+  polygon(c(density_ci$x, rev(density_ci$x)), c(rep(min(ate_density$y), length(density_ci$x)), rev(density_ci$y)), col = rgb(0, 0, 1, alpha = 0.3))
+  abline(v = mean(ate_values), col = "purple", lwd = 2, lty = 3)
+  abline(v = ci[1], col = "darkgreen", lty = 2)
+  abline(v = ci[2], col = "darkgreen", lty = 2)
 
-  # Add a vertical line at the mean ATE value
-  abline(v = mean(ate_values), col = "red", lwd = 2, lty = 2)
+  legend_text <- c("ATE Density",
+                   paste("Mean:", round(mean(ate_values), 3)),
+                   paste("95% CI: [", round(ci[1], 3), ",", round(ci[2], 3), "]"))
 
-  # Add a legend
-  legend("topright", legend = c("ATE Density", "Mean ATE"), fill = c(fill_density, NA), border = c(col_density, "red"), lty = c(NA, 2), lwd = c(NA, 2))
+  legend("topright", legend = legend_text,
+         col = c(col_density, "purple", "darkgreen"),
+         lwd = 2, lty = c(1, 3, 2))
 }
 
 
