@@ -27,7 +27,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
                              parallel = TRUE,
                              ncore = 4){
 
-  # #testing;
+  # testing;
   # ymodel = y ~ a_1*a_2;
   # nvisit = 2;
   # reference = c(rep(0,2));
@@ -37,6 +37,9 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
   # wmean = rep(1, 1000);
   # nboot = 1000;
   # optim_method = "BFGS";
+  # estimand = "RD";
+  # parallel = TRUE;
+  # ncore = 4
 
   # first thing first load all the required R packages;
   if (!require(foreach)){
@@ -156,7 +159,8 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
   registerDoParallel(cores = numCores)
 
   results <- foreach(i=1:nboot, .combine = 'rbind',
-                     .packages = 'MCMCpack') %dopar% {
+                     .packages = 'MCMCpack',
+                     .export = c('calculate_effect')) %dopar% {
 
     results.it <- matrix(NA, 1, 3) #result matrix, three columns for bootest, effect_ref, and effect_comp;
 
@@ -181,11 +185,11 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     # results.it[1,3] <- results.it[1,1] - results.it[1,2]
     if (family == "binomial") { # binary outcomes
       if (estimand == "RD") { # Risk Difference
-        bootest[j] <- expit(results.it[1,2]) - expit(results.it[1,1])
+        results.it[1,3] <- expit(results.it[1,2]) - expit(results.it[1,1])
       } else if (estimand == "RR") {
-        bootest[j] <- expit(results.it[1,2]) / expit(results.it[1,1])
+        results.it[1,3] <- expit(results.it[1,2]) / expit(results.it[1,1])
       } else if (estimand == "OR") {
-        bootest[j] <- (expit(results.it[1,2]) / (1 - expit(results.it[1,2]))) /
+        results.it[1,3] <- (expit(results.it[1,2]) / (1 - expit(results.it[1,2]))) /
                       (expit(results.it[1,1]) / (1 - expit(results.it[1,1])))
       }
 
@@ -193,12 +197,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
       if (estimand == "RD") { # Risk Difference
         results.it[1,3] <- results.it[1,2] - results.it[1,1]
       }
-      # else if (estimand == "RR") {
-      #   results.it[1,3] <- results.it[1,1] / results.it[1,2]
-      # } else if (estimand == "OR") {
-      #   bootest[j] <- (results.it[1,1] / (1 - results.it[1,1])) /
-      #                 (results.it[1,2] / (1 - results.it[1,2]))
-      }
+    }
 
     # combining parallel results;
     cbind(i,results.it) #end of parallel;
@@ -291,7 +290,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
           bootest[j] <- effect_comparator[j] - effect_reference[j]
         } else if (estimand %in% c("RR","OR")) {
           # print a warning message that say for continuous outcome, RR and OR specification are ignored. RD is the causal estimate;
-          bootest[j] <- effect_comparator[j] - effect_reference[j]
+          warning("For continuous outcomes, RR and OR specifications are ignored. RD is the only applicable causal estimate.")
         }
       }
 
@@ -374,29 +373,29 @@ quantile(bootoutput2$ATE, probs=c(0.025,0.975))
 
 # Binary outcome; original dataset
 # setwd("C:/Users/YanXi/Downloads")
-# testdata3 <- readr::read_csv("R/binary_outcome_data.csv")
-# start<-Sys.time()
-# model3 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2,
-#                            nvisit = 2,
-#                            reference = c(rep(0,2)),
-#                            comparator = c(rep(1,2)),
-#                            family = "binomial",
-#                            data = testdata3,
-#                            wmean = rep(1, 1000),
-#                            nboot = 1000,
-#                            optim_method = "BFGS",
-#                            estimand = "RD",
-#                            parallel = FALSE,
-#                            ncore = 6)
-# Sys.time()-start
-# bootoutput3 = model3$bootdata
-#
-# mean(bootoutput3$ATE)
-# var(bootoutput3$ATE)
-# sqrt(var(bootoutput3$ATE))
-# quantile(bootoutput3$ATE, probs=c(0.025,0.975))
+testdata3 <- readr::read_csv("R/binary_outcome_data.csv")
+start<-Sys.time()
+model3 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2,
+                           nvisit = 2,
+                           reference = c(rep(0,2)),
+                           comparator = c(rep(1,2)),
+                           family = "binomial",
+                           data = testdata3,
+                           wmean = rep(1, 1000),
+                           nboot = 1000,
+                           optim_method = "BFGS",
+                           estimand = "OR",
+                           parallel = TRUE,
+                           ncore = 6)
+Sys.time()-start
+bootoutput3 = model3$bootdata
 
-# Result
+mean(bootoutput3$ATE)
+var(bootoutput3$ATE)
+sqrt(var(bootoutput3$ATE))
+quantile(bootoutput3$ATE, probs=c(0.025,0.975))
+
+# Result (RD)
 # > mean(bootoutput3$ATE)
 # [1] -0.1044813
 # > var(bootoutput3$ATE)
@@ -407,7 +406,55 @@ quantile(bootoutput2$ATE, probs=c(0.025,0.975))
 # 2.5%       97.5%
 #   -0.18221276 -0.02746802
 
-fmodel<-glm(Y~a_1+a_2, data = )
-APO11 <-predict(fmodel, newdata = data.frame(a_1=1, a_2=1), type = response)
-APO00 <-predict(fmodel, newdata = data.frame(a_1=0, a_2=0), type = response)
+# Result (RR)
+# > mean(bootoutput3$ATE)
+# [1] 0.7620311
+# > var(bootoutput3$ATE)
+# [1] 0.007340783
+# > sqrt(var(bootoutput3$ATE))
+# [1] 0.08567837
+# > quantile(bootoutput3$ATE, probs=c(0.025,0.975))
+# 2.5%     97.5%
+#   0.5968952 0.9466362
+
+# Result (OR)
+# > mean(bootoutput3$ATE)
+# [1] 0.6531055
+# > var(bootoutput3$ATE)
+# [1] 0.01354314
+# > sqrt(var(bootoutput3$ATE))
+# [1] 0.116375
+# > quantile(bootoutput3$ATE, probs=c(0.025,0.975))
+# 2.5%     97.5%
+#   0.4490643 0.8962784
+
+fmodel<-glm(y ~ a_1+a_2, data = testdata3)
+APO_11 <- predict(fmodel, newdata = data.frame(a_1=1, a_2=1), type = "response")
+APO_00 <- predict(fmodel, newdata = data.frame(a_1=0, a_2=0), type = "response")
+
+APO_11 - APO_00
+APO_11 / APO_00
+(APO_11 / (1 - APO_11)) / (APO_00 / (1 - APO_00))
+
+# Result
+# RD
+# > APO_11 - APO_00
+# 1
+# -0.1031548
+# RR
+# > APO_11 / APO_00
+# 1
+# 0.7573964
+# OR
+# > (APO_11 / (1 - APO_11)) / (APO_00 / (1 - APO_00))
+# 1
+# 0.6421543
+
+
+
+# expit <- function(x){exp(x) / (1+exp(x))}
+# expit(APO_11) - expit(APO_00)
+# expit(APO_11) / expit(APO_00)
+# (expit(APO_11) / (1 - expit(APO_11))) / (expit(APO_00) / (1 - expit(APO_00)))
+
 
