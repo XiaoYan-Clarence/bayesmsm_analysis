@@ -1,6 +1,6 @@
 #' Title Plot Average Treatment Effect (ATE) Density from Bootstrap Results
 #'
-#' @param bootdata A data frame or vector containing the bootstrap estimates of ATE.
+#' @param input A data frame or vector containing the bootstrap estimates of ATE.
 #' @param col_density Color for the density plot (default is "blue").
 #' @param fill_density Fill color for the density plot (default is "lightblue").
 #' @param main Title of the plot (default is "Density of ATE Estimates").
@@ -12,19 +12,26 @@
 #'
 #' @export
 #'
-plot_ATE <- function(bootdata,
+plot_ATE <- function(input,
                      col_density = "blue",
                      fill_density = "lightblue",
                      main = "Posterior Predictive Distribution of Average Treatment Effect (ATE）",
                      xlab = "ATE", ylab = "Posterior Predictive Distribution",
                      xlim = NULL, ylim = NULL, ...) {
-  # Check if bootdata is a data frame with a specific column or a vector
-  if (is.data.frame(bootdata) && "ATE" %in% names(bootdata)) {
-    ate_values <- bootdata$ATE
-  } else if (is.vector(bootdata)) {
-    ate_values <- bootdata
+  # Check if input is either a data frame or part of a model object
+  if (is.list(input) && "bootdata" %in% names(input)) {
+    # If input is a list and has bootdata, check for ATE column within bootdata
+    if ("ATE" %in% names(input$bootdata)) {
+      ate_values <- input$bootdata$ATE
+    } else {
+      stop("bootdata within the model object must have an 'ATE' column.")
+    }
+  } else if (is.data.frame(input) && "ATE" %in% names(input)) {
+    ate_values <- input$ATE
+  } else if (is.vector(input)) {
+    ate_values <- input
   } else {
-    stop("bootdata must be a vector of ATE estimates or a data frame with an 'ATE' column.")
+    stop("input must be a vector of ATE estimates, a data frame, or a model object containing a 'bootdata' data frame with an 'ATE' column.")
   }
 
   # # Calculate the density of ATE estimates
@@ -62,9 +69,13 @@ plot_ATE <- function(bootdata,
 
 
 # Test
-plot_ATE(model1$bootdata)
+plot_ATE(model2)
 # or
-plot_ATE(model1$bootdata$ATE)
+plot_ATE(model2$bootdata)
+# or
+plot_ATE(model2$bootdata$ATE)
+
+
 
 # Compared to:
 plot(density(model1$bootdata$ATE))

@@ -49,11 +49,8 @@ plot_APO <- function(input, effect_type, ...) {
   # Shade the area under the curve within the 95% CI
   polygon(c(density_ci$x, rev(density_ci$x)), c(rep(min(density_effect$y), length(density_ci$x)), rev(density_ci$y)), col = rgb(0, 0, 1, alpha = 0.3))
 
-  # Add a vertical line for the mean and median
+  # Add a vertical lines for the mean and 95% CI bounds
   abline(v = mean_effect, col = "purple", lty = 3)
-  # abline(v = median_effect, col = "darkgrey", lty = 4)
-
-  # Add vertical lines for the 95% CI bounds
   abline(v = ci[1], col = "darkgreen", lty = 2)
   abline(v = ci[2], col = "darkgreen", lty = 2)
 

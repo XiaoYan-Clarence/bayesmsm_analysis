@@ -23,7 +23,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
                              wmean = rep(1, 1000),
                              nboot = 1000,
                              optim_method = 'BFGS',
-                             estimand = "RD",
+                             estimand = 'RD',
                              parallel = TRUE,
                              ncore = 4){
 
@@ -85,7 +85,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     list(response = response_name, predictors = predictor_names)
    }
 
-  source("R/rdirichlet.R")
+  # source("R/rdirichlet.R")
   source("R/calculate_effect.R")
 
   variables <- extract_variables(ymodel) # Extract variable names from the formula
@@ -93,8 +93,8 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
 
   Y <- data[[Y_name]]
   A_base <- data.frame(matrix(data = NA,
-                   nrow = nrow(data),
-                   ncol = length(variables$predictors)))
+                              nrow = nrow(data),
+                              ncol = length(variables$predictors)))
   for (i in 1:length(variables$predictors)){
     initial_vector <- variables$predictors[i]
     split_vector <- strsplit(initial_vector, ":")
@@ -142,6 +142,30 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
 
   expit <- function(x){exp(x) / (1+exp(x))}
 
+  # calculate_effect <- function(intervention_levels, variables, param_estimates) {
+  #   # Start with the intercept term
+  #   effect<-effect_intercept<-param_estimates[1]
+  #
+  #   # Go through each predictor and add its contribution
+  #   for (i in 1:length(variables$predictors)) {
+  #     term <- variables$predictors[i]
+  #     term_variables <- unlist(strsplit(term, ":"))
+  #     term_index <- which(names(param_estimates) == term)
+  #
+  #     # Calculate the product of intervention levels for the interaction term
+  #     term_contribution <- param_estimates[term_index]
+  #     for (term_variable in term_variables) {
+  #       var_index <- which(variables$predictors == term_variable)
+  #       term_contribution <- term_contribution * intervention_levels[var_index]
+  #     }
+  #
+  #     # Add the term contribution to the effect
+  #     effect <- effect + term_contribution
+  #   }
+  #
+  #   return(effect)
+  # }
+
   if (family == "gaussian"){
     wfn = wloglik_normal
     inits1 <- c(rep(0.1, length(A)), 4)  # Default initial values, 4 is for the SD;
@@ -159,8 +183,9 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
   registerDoParallel(cores = numCores)
 
   results <- foreach(i=1:nboot, .combine = 'rbind',
-                     .packages = 'MCMCpack',
-                     .export = c('calculate_effect')) %dopar% {
+                     .packages = 'MCMCpack'
+                     # , .export = 'calculate_effect'
+                     ) %dopar% {
 
     results.it <- matrix(NA, 1, 3) #result matrix, three columns for bootest, effect_ref, and effect_comp;
 
@@ -186,13 +211,12 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     if (family == "binomial") { # binary outcomes
       if (estimand == "RD") { # Risk Difference
         results.it[1,3] <- expit(results.it[1,2]) - expit(results.it[1,1])
-      } else if (estimand == "RR") {
+      } else if (estimand == "RR") { # Relative Risk
         results.it[1,3] <- expit(results.it[1,2]) / expit(results.it[1,1])
-      } else if (estimand == "OR") {
+      } else if (estimand == "OR") { # Odds Ratio
         results.it[1,3] <- (expit(results.it[1,2]) / (1 - expit(results.it[1,2]))) /
                       (expit(results.it[1,1]) / (1 - expit(results.it[1,1])))
       }
-
     } else if (family == "gaussian"){ # continuous outcomes
       if (estimand == "RD") { # Risk Difference
         results.it[1,3] <- results.it[1,2] - results.it[1,1]
@@ -278,13 +302,12 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
       if (family == "binomial") { # binary outcomes
         if (estimand == "RD") { # Risk Difference
           bootest[j] <- expit(effect_comparator[j]) - expit(effect_reference[j])
-        } else if (estimand == "RR") {
+        } else if (estimand == "RR") { # Relative Risk
           bootest[j] <- expit(effect_comparator[j]) / expit(effect_reference[j])
-        } else if (estimand == "OR") {
+        } else if (estimand == "OR") { # Odds Ratio
           bootest[j] <- (expit(effect_comparator[j]) / (1 - expit(effect_comparator[j]))) /
                         (expit(effect_reference[j]) / (1 - expit(effect_reference[j])))
         }
-
       } else if (family == "gaussian"){ # continuous outcomes
         if (estimand == "RD") { # Risk Difference
           bootest[j] <- effect_comparator[j] - effect_reference[j]
@@ -428,7 +451,7 @@ quantile(bootoutput3$ATE, probs=c(0.025,0.975))
 # 2.5%     97.5%
 #   0.4490643 0.8962784
 
-fmodel<-glm(y ~ a_1+a_2, data = testdata3)
+fmodel <- glm(y ~ a_1+a_2, data = testdata3)
 APO_11 <- predict(fmodel, newdata = data.frame(a_1=1, a_2=1), type = "response")
 APO_00 <- predict(fmodel, newdata = data.frame(a_1=0, a_2=0), type = "response")
 
