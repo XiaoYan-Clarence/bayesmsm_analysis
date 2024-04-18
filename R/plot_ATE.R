@@ -1,6 +1,6 @@
-#' Title Plot Average Treatment Effect (ATE) Density from Bootstrap Results
+#' Plot Average Treatment Effect (ATE) Density from Bootstrap Results
 #'
-#' @param input A data frame or vector containing the bootstrap estimates of ATE.
+#' @param input A model object, data frame or vector containing the bootstrap estimates of ATE.
 #' @param col_density Color for the density plot (default is "blue").
 #' @param fill_density Fill color for the density plot (default is "lightblue").
 #' @param main Title of the plot (default is "Density of ATE Estimates").
