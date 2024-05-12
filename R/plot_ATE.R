@@ -15,7 +15,7 @@
 plot_ATE <- function(input,
                      col_density = "blue",
                      fill_density = "lightblue",
-                     main = "Posterior Predictive Distribution of Average Treatment Effect (ATE）",
+                     main = "Posterior Predictive Distribution of Average Treatment Effect (ATE)",
                      xlab = "ATE", ylab = "Posterior Predictive Distribution",
                      xlim = NULL, ylim = NULL, ...) {
   # Check if input is either a data frame or part of a model object
