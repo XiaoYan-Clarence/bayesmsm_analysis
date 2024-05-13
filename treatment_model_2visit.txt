@@ -1,0 +1,46 @@
+
+model{
+for(i in 1:N){ 
+
+# visit 1;
+
+a_1s[i] ~ dbern(pa1s[i])
+pa1s[i] <- ilogit(bs11)
+
+a_1[i] ~ dbern(pa1[i])
+pa1[i] <- ilogit(b11 + b12*w1[i] + b13*w2[i] + b14*L1_1[i] +b15*L2_1[i])
+
+# visit 2;
+a_2s[i] ~ dbern(pa2s[i])
+logit(pa2s[i]) <- ilogit(bs21 + bs22*a_1s[i])
+
+a_2[i] ~ dbern(pa2[i])
+pa2[i] <- ilogit(b21+b22*w1[i]+b23*w2[i]+b24*L1_1[i]+b25*L2_1[i]+b26*a_1[i]+b27*L1_2[i]+b28*L2_2[i])
+
+# export quantity in full posterior specification;
+w[i] <- (pa1s[i]*pa2s[i])/(pa1[i]*pa2[i])
+} 
+
+#prior;
+#all parameters here use dnorm(0,.01);
+bs11~dnorm(0,.01) 
+bs21~dnorm(0,.01) 
+bs22~dnorm(0,.01) 
+
+b11~dnorm(0,.01) 
+b12~dnorm(0,.01) 
+b13~dnorm(0,.01) 
+b14~dnorm(0,.01) 
+b15~dnorm(0,.01) 
+
+b21~dnorm(0,.01)
+b22~dnorm(0,.01)
+b23~dnorm(0,.01)
+b24~dnorm(0,.01)
+b25~dnorm(0,.01)
+b26~dnorm(0,.01)
+b27~dnorm(0,.01)
+b28~dnorm(0,.01)
+
+}
+

@@ -1,0 +1,101 @@
+ model {
+     
+     for (i in 1:N3) {
+     
+     # conditional model;
+     z3[i] ~ dbern(p3[i])
+     logit(p3[i]) <- b30 + b31*y3[i] + b32*x13[i] + b33*x23[i] + b34*bz2[i]
+     c3[i] ~ dbern(cp3[i])
+     logit(cp3[i]) <- s30 + s31*y3[i] + s32*x13[i] + s33*x23[i] + s34*z3[i]
+
+     # marginal model;
+     z3s[i] ~ dbern(p3s[i])
+     logit(p3s[i]) <- bs30 + bs31*bz2[i]
+     c3s[i] ~ dbern(cp3s[i])
+     logit(cp3s[i]) <- ts30 + ts31*z3[i]
+
+     }
+
+     for (i in 1:N2) {
+     
+     # conditional model;
+     z2[i] ~ dbern(p2[i])
+     logit(p2[i]) <- b20 + b21*y2[i] + b22*x12[i] + b23*x22[i] + b24*bz1[i]
+     c2[i] ~ dbern(cp2[i])
+     logit(cp2[i]) <- s20 + s21*y2[i] + s22*x12[i] + s23*x22[i] + s24*z2[i]
+
+     # marginal model;
+     z2s[i] ~ dbern(p2s[i])
+     logit(p2s[i]) <- bs20 + bs21*bz1[i]
+     c2s[i] ~ dbern(cp2s[i])
+     logit(cp2s[i]) <- ts20 + ts21*z2[i]
+
+     }
+
+     for (i in 1:N1) {
+     
+     # conditional model;
+     z1[i] ~ dbern(p1[i])
+     logit(p1[i]) <- b10 + b11*y1[i] + b12*x11[i] + b13*x21[i]
+     c1[i] ~ dbern(cp1[i])
+     logit(cp1[i]) <- s10 + s11*y1[i] + s12*x11[i] + s13*x21[i] + s14*z1[i]
+
+    # marginal model;
+     z1s[i] ~ dbern(p1s[i])
+     logit(p1s[i]) <- bs10
+     c1s[i] ~ dbern(cp1s[i])
+     logit(cp1s[i]) <- ts10 + ts11*z1[i]
+     
+    }
+
+     
+     # Priors
+     b10 ~ dunif(-10,10) #true -4
+     b11 ~ dunif(-10,10) #true 0.3;
+     b12 ~ dunif(-10,10) #true -0.1;
+     b13 ~ dunif(-10,10)
+     
+     b20 ~ dunif(-10,10) #-3
+     b21 ~ dunif(-10,10)
+     b22 ~ dunif(-10,10)
+     b23 ~ dunif(-10,10) #true 2
+     b24 ~ dunif(-10,10)
+     
+     b30 ~ dunif(-10,10) #-3
+     b31 ~ dunif(-10,10)
+     b32 ~ dunif(-10,10)
+     b33 ~ dunif(-10,10) #true 2
+     b34 ~ dunif(-10,10)
+     
+     s10 ~ dunif(-10,10) #true -4
+     s11 ~ dunif(-10,10) #true 0.3;
+     s12 ~ dunif(-10,10) #true -0.1;
+     s13 ~ dunif(-10,10)
+     s14 ~ dunif(-10,10)
+
+     s20 ~ dunif(-10,10) #-3
+     s21 ~ dunif(-10,10)
+     s22 ~ dunif(-10,10)
+     s23 ~ dunif(-10,10) #true 2
+     s24 ~ dunif(-10,10)
+     
+     s30 ~ dunif(-10,10) #-3
+     s31 ~ dunif(-10,10)
+     s32 ~ dunif(-10,10)
+     s33 ~ dunif(-10,10) #true 2
+     s34 ~ dunif(-10,10)
+
+     bs10 ~ dunif(-10,10)
+     bs20 ~ dunif(-10,10)
+     bs21 ~ dunif(-10,10)
+     bs30 ~ dunif(-10,10)
+     bs31 ~ dunif(-10,10)
+
+     ts10 ~ dunif(-10,10)
+     ts11 ~ dunif(-10,10)
+     ts20 ~ dunif(-10,10)
+     ts21 ~ dunif(-10,10)
+     ts30 ~ dunif(-10,10)
+     ts31 ~ dunif(-10,10)
+     
+     }

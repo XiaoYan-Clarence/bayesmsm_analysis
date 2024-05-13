@@ -1,0 +1,26 @@
+model{
+#N = nobs
+for(i in 1:N){
+
+# visit 1;
+# marginal treatment assignment model, visit 1;
+a_1[i] ~ dbern(pa_1[i])
+logit(pa_1[i]) <- ilogit(bs11)
+
+# conditional treatment assignment model, visit 1;
+a_1[i] ~ dbern(pa_1[i])
+pa_1[i] <- ilogit(b11 + b12*w1[i] + b13*w2[i] + b14*L1_1[i] + b15*L2_1[i])
+
+# visit 2;
+# marginal treatment assignment model, visit 2;
+a_2[i] ~ dbern(pa_2[i])
+logit(pa_2[i]) <- ilogit(bs21)
+
+# conditional treatment assignment model, visit 2;
+a_2[i] ~ dbern(pa_2[i])
+pa_2[i] <- ilogit(b21 + b22*w1[i] + b23*w2[i] + b24*L1_1[i] + b25*L2_1[i] + b26*L1_2[i] + b27*L2_2[i] + b28*a_1[i])
+
+# export quantity in full posterior specification;
+w[i] <- (pa_1s[i]*pa_2s[i])/(pa_1[i]*pa_2[i]JAGS model file written to 'treatment_model_2visit.txt'
+JAGS model file written to 'treatment_model_visit.txt'
+JAGS model file written to 'treatment_model_2visit.txt'
