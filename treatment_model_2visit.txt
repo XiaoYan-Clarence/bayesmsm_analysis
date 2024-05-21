@@ -12,7 +12,7 @@ pa1[i] <- ilogit(b11 + b12*w1[i] + b13*w2[i] + b14*L1_1[i] +b15*L2_1[i])
 
 # visit 2;
 a_2s[i] ~ dbern(pa2s[i])
-logit(pa2s[i]) <- ilogit(bs21 + bs22*a_1s[i])
+pa2s[i] <- ilogit(bs21 + bs22*a_1s[i])
 
 a_2[i] ~ dbern(pa2[i])
 pa2[i] <- ilogit(b21+b22*w1[i]+b23*w2[i]+b24*L1_1[i]+b25*L2_1[i]+b26*a_1[i]+b27*L1_2[i]+b28*L2_2[i])

@@ -41,7 +41,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
   # parallel = TRUE;
   # ncore = 4
 
-  # first thing first load all the required R packages;
+  # Load all the required R packages;
   if (!require(foreach)){
     install.packages("foreach",repos="http://cran.r-project.org")
     library(foreach)
@@ -336,8 +336,9 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
 }
 
 
+
 #test;
-# Continuous outcome
+# Continuous outcome with a_3 and a_4
 # setwd("C:/Users/YanXi/Downloads")
 testdata <- readr::read_csv("R/continuous_outcome_data.csv")
 testdata$a_3 <- rbinom(n=length(testdata$y),1,p=0.4)
@@ -362,6 +363,8 @@ mean(bootoutput$ATE)
 var(bootoutput$ATE)
 sqrt(var(bootoutput$ATE))
 quantile(bootoutput$ATE, probs=c(0.025,0.975))
+
+
 
 # Continuous outcome; original dataset (same as that on Quarto)
 # setwd("C:/Users/YanXi/Downloads")
@@ -397,6 +400,8 @@ quantile(bootoutput2$ATE, probs=c(0.025,0.975))
 # > quantile(bootoutput2$ATE, probs=c(0.025,0.975))
 # 2.5%     97.5%
 #   -3.356886 -2.992084
+
+
 
 # Binary outcome; original dataset
 # setwd("C:/Users/YanXi/Downloads")
