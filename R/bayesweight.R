@@ -11,19 +11,25 @@
 #'
 #' @examples
 bayesweight <- function(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
-                                            a_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + a_1),
+                                             a_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + a_1),
                         data = causaldata,
+                        n.chains = 1,
                         n.iter = 25000,
                         n.burnin = 15000,
-                        n.thin = 5){
+                        n.thin = 5,
+                        seed = 890123,
+                        parallel = FALSE){
 
   # Testing
   # trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
   #                     a_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + a_1)
   # data <- read.csv("continuous_outcome_data.csv", header = TRUE, fileEncoding="UTF-8-BOM")
+  # n.chains = 2
   # n.iter = 250
   # n.burnin = 50
   # n.thin = 5
+  # parallel = TRUE
+  # seed = 890123
 
   # Load all the required R packages;
   if (!require(R2jags)){
@@ -33,6 +39,10 @@ bayesweight <- function(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
   if (!require(coda)){
     install.packages("coda",repos="http://cran.r-project.org")
     library(coda)
+  }
+  if (!require(parallel)){
+    install.packages("parallel",repos="http://cran.r-project.org")
+    library(parallel)
   }
 
   # Test `write_jags_model` with different trtmodel.list
@@ -268,32 +278,128 @@ bayesweight <- function(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
     return(jags.data)
   }
 
+
+
   # Use this function to prepare JAGS data
   jags.data <- prepare_jags_data(data, trtmodel.list)
   jags.params <- write_jags_model(trtmodel.list)
 
   # Run JAGS model
-  set.seed(890123) # Is this needed?
-  jagsfit <- jags(data = jags.data,
-                  parameters.to.save = jags.params,
-                  n.iter = n.iter,
-                  model.file = "treatment_model.txt",
-                  n.chains = 1,
-                  n.burnin = n.burnin,
-                  n.thin = n.thin)
+  # set.seed(seed) # Is this needed?
+  # jagsfit <- jags(data = jags.data,
+  #                 parameters.to.save = jags.params,
+  #                 n.iter = n.iter,
+  #                 model.file = "treatment_model.txt",
+  #                 n.chains = 1,
+  #                 n.burnin = n.burnin,
+  #                 n.thin = n.thin,
+  #                 jags.seed = seed)
+  #
+  # # Extract MCMC output
+  # out.mcmc <- as.mcmc(jagsfit)
+  #
+  # posterior <- as.matrix(ldply(out.mcmc, data.frame))
+  #
+  # parallel = TRUE or FALSE; n.chains = 1 by default
+  # if FALSE, you run your old jagsfit
+  # if parallel = TRUE, #user specification;
+  # #check
+  # if n.chains == 1 then return error message "Parallel MCMC require at least 2 chains, computing is running on 1 core per chain"
+  # if n.chains > 1 then check total number of available cores on user computer,
+  #
+  # library(parallel)
+  # available_core = detectCores(logical = FALSE)
+  # if n.chains >= available_core return error message
+  #
+  # print(paste("Parallel MCMC require 1 core per chain", "you have", available_core, "We recommand using",available_core-2))
+  #
+  #
+  # only run jags.parallel if nchains > 1 & nchains < available_core
+  #
+  # jagsfit <-jags.parallel(data=,
+  #               parameters.to.save=,
+  #               model.file = "xxx",
+  #               n.chains = n.chains,
+  #               n.iter = n.iter,
+  #               n.burnin = n.burin,
+  #               n.thin = n.thin,
+  #               n.cluster= n.chains,
+  #               jags.seed = 123)
+  #
+  # if you do parallel, as.mcmc(jagsfit) will be a list with posterior data per chain,
+  # if you have 2 chains
+  # the combined posterior data set is full_post <- rbind(out.mcmc[[1]], out.mcmc[[2]]) the dimension is row = n.posterior * 2 (number of chains), column = number of parameters;
 
-  # Extract MCMC output
-  out.mcmc <- as.mcmc(jagsfit)
+  set.seed(seed) # Is this needed?
+
+  # Check if parallel computing is requested
+  if (parallel == TRUE) {
+    if (n.chains == 1) {
+      stop("Parallel MCMC requires at least 2 chains. Computing is running on 1 core per chain.")
+    }
+    available_cores <- detectCores(logical = FALSE)
+    if (n.chains >= available_cores) {
+      stop(paste("Parallel MCMC requires 1 core per chain. You have", available_cores, "cores. We recommend using", available_cores - 2, "cores."))
+    }
+    # Run JAGS model in parallel
+    library(doParallel)
+    cl <- makeCluster(n.chains)
+    registerDoParallel(cl)
+    jags.model.wd <- paste(getwd(), '/treatment_model.txt',sep='')
+
+    posterior <- foreach(i=1:n.chains, .packages=c('R2jags'),
+                                   .combine='rbind') %dopar%{
+
+                                     jagsfit <- jags(data = jags.data,
+                                                     parameters.to.save = jags.params,
+                                                     model.file = jags.model.wd,
+                                                     n.chains = 1,
+                                                     n.iter = n.iter,
+                                                     n.burnin = n.burnin,
+                                                     n.thin = n.thin,
+                                                     jags.seed = seed+i)
+                                     # Combine MCMC output from multiple chains
+                                     out.mcmc <- as.mcmc(jagsfit)
+                                     return(do.call(rbind, lapply(out.mcmc, as.matrix)))
+
+                                   }
+
+    stopCluster(cl)
+
+
+
+  } else if (parallel == FALSE) {
+
+    if (n.chains != 1) {
+      stop("Non-parallel MCMC requires 1 chain.")
+    }
+
+    # Run JAGS model without parallel computing
+    jagsfit <- jags(data = jags.data,
+                    parameters.to.save = jags.params,
+                    model.file = "treatment_model.txt",
+                    n.chains = 1,
+                    n.iter = n.iter,
+                    n.burnin = n.burnin,
+                    n.thin = n.thin,
+                    jags.seed = seed)
+
+    # Extract MCMC output
+    out.mcmc <- as.mcmc(jagsfit)
+    posterior <- as.matrix(out.mcmc[[1]])
+  }
+
+
   diagnostics <- geweke.diag(out.mcmc)
 
   # Check diagnostics for convergence issues
   significant_indices <- which(abs(diagnostics[[1]]$z) > 1.96)
   if (length(significant_indices) > 0) {
-    warning("Some parameters have not converged. More iterations may be needed.")
+    warning("Some parameters have not converged with Geweke index > 1.96. More iterations may be needed.")
   }
 
   # n_posterior = (n.iter - n.burnin)/n.thin
-  posterior <- as.matrix(out.mcmc[[1]])
+  # posterior <- as.matrix(out.mcmc[[1]])
 
   # pa_1[i] <- ilogit(b10 + b11*w1[i] + b12*w2[i] + b13*L1_1[i] + b14*L2_1[i]), so #covariates = 4
 
@@ -425,9 +531,11 @@ start<-Sys.time()
 weights2 <- bayesweight(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
                                              a_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + a_1),
                         data = testdata2,
-                        n.iter = 25000,
-                        n.burnin = 15000,
-                        n.thin = 5)
+                        n.iter = 250,
+                        n.burnin = 50,
+                        n.thin = 5,
+                        n.chains = 3,
+                        parallel = TRUE)
 Sys.time()-start
 weights2
 

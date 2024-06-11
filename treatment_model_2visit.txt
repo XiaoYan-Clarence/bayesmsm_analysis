@@ -1,6 +1,6 @@
 
 model{
-for(i in 1:N){ 
+for(i in 1:N){
 
 # visit 1;
 
@@ -19,19 +19,19 @@ pa2[i] <- ilogit(b21+b22*w1[i]+b23*w2[i]+b24*L1_1[i]+b25*L2_1[i]+b26*a_1[i]+b27*
 
 # export quantity in full posterior specification;
 w[i] <- (pa1s[i]*pa2s[i])/(pa1[i]*pa2[i])
-} 
+}
 
 #prior;
 #all parameters here use dnorm(0,.01);
-bs11~dnorm(0,.01) 
-bs21~dnorm(0,.01) 
-bs22~dnorm(0,.01) 
+bs11~dnorm(0,.01)
+bs21~dnorm(0,.01)
+bs22~dnorm(0,.01)
 
-b11~dnorm(0,.01) 
-b12~dnorm(0,.01) 
-b13~dnorm(0,.01) 
-b14~dnorm(0,.01) 
-b15~dnorm(0,.01) 
+b11~dnorm(0,.01)
+b12~dnorm(0,.01)
+b13~dnorm(0,.01)
+b14~dnorm(0,.01)
+b15~dnorm(0,.01)
 
 b21~dnorm(0,.01)
 b22~dnorm(0,.01)

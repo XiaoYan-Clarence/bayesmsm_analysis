@@ -158,8 +158,9 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
   # parallel computing only for this bootstrap step;
   if (parallel == TRUE){
 
-  numCores <- ncore
-  registerDoParallel(cores = numCores)
+  cl <- makeCluster(ncore)
+  registerDoParallel(cl)
+
 
   results <- foreach(i=1:nboot, .combine = 'rbind',
                      .packages = 'MCMCpack'
@@ -192,6 +193,7 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
 
     results.it <- matrix(NA, 1, 3) #result matrix, three columns for bootest, effect_ref, and effect_comp;
 
+    set.seed(seed+i) #define seed;
     alpha <- as.numeric(rdirichlet(1, rep(1.0, length(Y))))
 
     maxim <- optim(inits1,
@@ -229,6 +231,8 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     # combining parallel results;
     cbind(i,results.it) #end of parallel;
   }
+
+  stopCluster(cores)
 
   #saving output for the parallel setting;
   return(list(
