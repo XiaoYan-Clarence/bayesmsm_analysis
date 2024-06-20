@@ -330,7 +330,7 @@ bayesweight <- function(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
   # if you have 2 chains
   # the combined posterior data set is full_post <- rbind(out.mcmc[[1]], out.mcmc[[2]]) the dimension is row = n.posterior * 2 (number of chains), column = number of parameters;
 
-  set.seed(seed) # Is this needed?
+  # set.seed(seed) # Not needed
 
   # Check if parallel computing is requested
   if (parallel == TRUE) {
@@ -361,12 +361,9 @@ bayesweight <- function(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
                                      # Combine MCMC output from multiple chains
                                      out.mcmc <- as.mcmc(jagsfit)
                                      return(do.call(rbind, lapply(out.mcmc, as.matrix)))
-
                                    }
 
     stopCluster(cl)
-
-
 
   } else if (parallel == FALSE) {
 
@@ -534,8 +531,9 @@ weights2 <- bayesweight(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
                         n.iter = 250,
                         n.burnin = 50,
                         n.thin = 5,
-                        n.chains = 3,
-                        parallel = TRUE)
+                        n.chains = 1,
+                        seed = 890123,
+                        parallel = FALSE)
 Sys.time()-start
 weights2
 

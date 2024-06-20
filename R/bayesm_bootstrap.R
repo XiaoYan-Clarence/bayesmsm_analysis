@@ -14,7 +14,7 @@
 #' @export
 #'
 
-bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
+bayesmsm <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
                              nvisit = 10,
                              reference = c(rep(0,nvisits)), # An example of never treated
                              comparator = c(rep(1,nvisits)),
@@ -23,7 +23,8 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
                              wmean = rep(1, nrow(data)),
                              nboot = 1000,
                              optim_method = 'BFGS',
-                             estimand = 'RD',
+                             # estimand = 'RD',
+                             seed = 890123,
                              parallel = TRUE,
                              ncore = 4){
 
@@ -40,6 +41,9 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
   # estimand = "RD";
   # parallel = TRUE;
   # ncore = 4
+
+  # Global option
+  options(max.print = 100)
 
   # Load all the required R packages;
   if (!require(foreach)){
@@ -191,9 +195,46 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
                          return(effect)
                        }
 
-    results.it <- matrix(NA, 1, 3) #result matrix, three columns for bootest, effect_ref, and effect_comp;
+    # results.it <- matrix(NA, 1, 3) #result matrix, three columns for bootest, effect_ref, and effect_comp;
+    #
+    # set.seed(seed+i) #define seed;
+    # alpha <- as.numeric(rdirichlet(1, rep(1.0, length(Y))))
+    #
+    # maxim <- optim(inits1,
+    #                fn = wfn,
+    #                Y = Y,
+    #                A = A,
+    #                weight = alpha * wmean,
+    #                control = list(fnscale = -1),
+    #                method = optim_method,
+    #                hessian = FALSE)
+    #
+    # names(maxim$par) <- c("(Intercept)", variables$predictors)
+    #
+    # # Calculate the effects
+    # results.it[1,1] <- calculate_effect(reference, variables, param_estimates=maxim$par)
+    # results.it[1,2] <- calculate_effect(comparator, variables, param_estimates=maxim$par)
+    #
+    # # Calculate the ATE
+    # # results.it[1,3] <- results.it[1,1] - results.it[1,2]
+    # if (family == "binomial") { # binary outcomes
+    #   if (estimand == "RD") { # Risk Difference
+    #     results.it[1,3] <- expit(results.it[1,2]) - expit(results.it[1,1])
+    #   } else if (estimand == "RR") { # Relative Risk
+    #     results.it[1,3] <- expit(results.it[1,2]) / expit(results.it[1,1])
+    #   } else if (estimand == "OR") { # Odds Ratio
+    #     results.it[1,3] <- (expit(results.it[1,2]) / (1 - expit(results.it[1,2]))) /
+    #                   (expit(results.it[1,1]) / (1 - expit(results.it[1,1])))
+    #   }
+    # } else if (family == "gaussian"){ # continuous outcomes
+    #   if (estimand == "RD") { # Risk Difference
+    #     results.it[1,3] <- results.it[1,2] - results.it[1,1]
+    #   }
+    # }
 
-    set.seed(seed+i) #define seed;
+    results.it <- matrix(NA, 1, 5) # Result matrix for RD, RR, OR, effect_ref, and effect_comp
+
+    set.seed(seed+i) # Define seed;
     alpha <- as.numeric(rdirichlet(1, rep(1.0, length(Y))))
 
     maxim <- optim(inits1,
@@ -208,47 +249,88 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     names(maxim$par) <- c("(Intercept)", variables$predictors)
 
     # Calculate the effects
-    results.it[1,1] <- calculate_effect(reference, variables, param_estimates=maxim$par)
-    results.it[1,2] <- calculate_effect(comparator, variables, param_estimates=maxim$par)
+    effect_ref <- calculate_effect(reference, variables, param_estimates=maxim$par)
+    effect_comp <- calculate_effect(comparator, variables, param_estimates=maxim$par)
 
-    # Calculate the ATE
-    # results.it[1,3] <- results.it[1,1] - results.it[1,2]
-    if (family == "binomial") { # binary outcomes
-      if (estimand == "RD") { # Risk Difference
-        results.it[1,3] <- expit(results.it[1,2]) - expit(results.it[1,1])
-      } else if (estimand == "RR") { # Relative Risk
-        results.it[1,3] <- expit(results.it[1,2]) / expit(results.it[1,1])
-      } else if (estimand == "OR") { # Odds Ratio
-        results.it[1,3] <- (expit(results.it[1,2]) / (1 - expit(results.it[1,2]))) /
-                      (expit(results.it[1,1]) / (1 - expit(results.it[1,1])))
-      }
-    } else if (family == "gaussian"){ # continuous outcomes
-      if (estimand == "RD") { # Risk Difference
-        results.it[1,3] <- results.it[1,2] - results.it[1,1]
-      }
+    # Calculate the ATEs
+    if (family == "binomial") { # Binary outcomes
+      results.it[1,1] <- expit(effect_comp) - expit(effect_ref)  # RD
+      results.it[1,2] <- expit(effect_comp) / expit(effect_ref)  # RR
+      results.it[1,3] <- (expit(effect_comp) / (1 - expit(effect_comp))) /
+        (expit(effect_ref) / (1 - expit(effect_ref)))  # OR
+    } else if (family == "gaussian"){ # Continuous outcomes
+      results.it[1,1] <- effect_comp - effect_ref  # RD
+      results.it[1,2] <- NA  # RR not applicable
+      results.it[1,3] <- NA  # OR not applicable
     }
+
+    # Store the reference and comparator effects
+    results.it[1,4] <- effect_ref
+    results.it[1,5] <- effect_comp
 
     # combining parallel results;
     cbind(i,results.it) #end of parallel;
   }
 
-  stopCluster(cores)
+  stopCluster(cl)
+
+  # results <- results[complete.cases(results),]
 
   #saving output for the parallel setting;
-  return(list(
-    mean = mean(results[,4]),
-    sd = sqrt(var(results[,4])),
-    quantile = quantile(results[,4], probs = c(0.025, 0.975)),
-    bootdata = data.frame(effect_reference = results[,2], effect_comparator = results[,3], ATE = results[,4]),
-    reference = reference,
-    comparator = comparator
-  ))
-
+  # return(list(
+  #   mean = mean(results[,4]),
+  #   sd = sqrt(var(results[,4])),
+  #   quantile = quantile(results[,4], probs = c(0.025, 0.975)),
+  #   bootdata = data.frame(effect_reference = results[,2], effect_comparator = results[,3], ATE = results[,4]),
+  #   reference = reference,
+  #   comparator = comparator
+  # ))
+  if (family == "binomial") {
+    return(list(
+      RD_mean = mean(results[,2]),
+      RR_mean = mean(results[,3]),
+      OR_mean = mean(results[,4]),
+      RD_sd = sqrt(var(results[,2])),
+      RR_sd = sqrt(var(results[,3])),
+      OR_sd = sqrt(var(results[,4])),
+      RD_quantile = quantile(results[,2], probs = c(0.025, 0.975)),
+      RR_quantile = quantile(results[,3], probs = c(0.025, 0.975)),
+      OR_quantile = quantile(results[,4], probs = c(0.025, 0.975)),
+      bootdata = data.frame(
+        effect_reference = results[,5],
+        effect_comparator = results[,6],
+        RD = results[,2],
+        RR = results[,3],
+        OR = results[,4]
+      ),
+      reference = reference,
+      comparator = comparator
+    ))
+  } else {
+    return(list(
+      RD_mean = mean(results[,2]),
+      RD_sd = sqrt(var(results[,2])),
+      RD_quantile = quantile(results[,2], probs = c(0.025, 0.975)),
+      bootdata = data.frame(
+        effect_reference = results[,5],
+        effect_comparator = results[,6],
+        RD = results[,2]
+      ),
+      reference = reference,
+      comparator = comparator
+    ))
+  }
   }
 
   else if (parallel == FALSE) {
 
-    bootest <- numeric(nboot)
+    # bootest <- numeric(nboot)
+    # effect_reference <- numeric(nboot)
+    # effect_comparator <- numeric(nboot)
+
+    bootest_RD <- numeric(nboot)
+    bootest_RR <- numeric(nboot)
+    bootest_OR <- numeric(nboot)
     effect_reference <- numeric(nboot)
     effect_comparator <- numeric(nboot)
 
@@ -306,35 +388,80 @@ bayesm_bootstrap <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
       # effect_comparator[j] <- calculate_effect(comparator, variables, param_estimates=maxim$solution)
 
       # Calculate the ATE
-      if (family == "binomial") { # binary outcomes
-        if (estimand == "RD") { # Risk Difference
-          bootest[j] <- expit(effect_comparator[j]) - expit(effect_reference[j])
-        } else if (estimand == "RR") { # Relative Risk
-          bootest[j] <- expit(effect_comparator[j]) / expit(effect_reference[j])
-        } else if (estimand == "OR") { # Odds Ratio
-          bootest[j] <- (expit(effect_comparator[j]) / (1 - expit(effect_comparator[j]))) /
-                        (expit(effect_reference[j]) / (1 - expit(effect_reference[j])))
-        }
-      } else if (family == "gaussian"){ # continuous outcomes
-        if (estimand == "RD") { # Risk Difference
-          bootest[j] <- effect_comparator[j] - effect_reference[j]
-        } else if (estimand %in% c("RR","OR")) {
-          # print a warning message that say for continuous outcome, RR and OR specification are ignored. RD is the causal estimate;
-          warning("For continuous outcomes, RR and OR specifications are ignored. RD is the only applicable causal estimate.")
-        }
+      # if (family == "binomial") { # binary outcomes
+      #   if (estimand == "RD") { # Risk Difference
+      #     bootest[j] <- expit(effect_comparator[j]) - expit(effect_reference[j])
+      #   } else if (estimand == "RR") { # Relative Risk
+      #     bootest[j] <- expit(effect_comparator[j]) / expit(effect_reference[j])
+      #   } else if (estimand == "OR") { # Odds Ratio
+      #     bootest[j] <- (expit(effect_comparator[j]) / (1 - expit(effect_comparator[j]))) /
+      #                   (expit(effect_reference[j]) / (1 - expit(effect_reference[j])))
+      #   }
+      # } else if (family == "gaussian"){ # continuous outcomes
+      #   if (estimand == "RD") { # Risk Difference
+      #     bootest[j] <- effect_comparator[j] - effect_reference[j]
+      #   } else if (estimand %in% c("RR","OR")) {
+      #     # print a warning message that say for continuous outcome, RR and OR specification are ignored. RD is the causal estimate;
+      #     warning("For continuous outcomes, RR and OR specifications are ignored. RD is the only applicable causal estimate.")
+      #   }
+      # }
+
+      # Calculate the ATEs
+      if (family == "binomial") { # Binary outcomes
+        bootest_RD[j] <- expit(effect_comparator[j]) - expit(effect_reference[j])  # RD
+        bootest_RR[j] <- expit(effect_comparator[j]) / expit(effect_reference[j])  # RR
+        bootest_OR[j] <- (expit(effect_comparator[j]) / (1 - expit(effect_comparator[j]))) /
+          (expit(effect_reference[j]) / (1 - expit(effect_reference[j])))  # OR
+      } else if (family == "gaussian"){ # Continuous outcomes
+        bootest_RD[j] <- effect_comparator[j] - effect_reference[j]  # RD
       }
 
 
     }
     #saving output for the non-parallel setting;
-    return(list(
-      mean = mean(bootest),
-      sd = sqrt(var(bootest)),
-      quantile = quantile(bootest, probs = c(0.025, 0.975)),
-      bootdata = data.frame(effect_reference, effect_comparator, ATE=bootest),
-      reference = reference,
-      comparator = comparator
-    ))
+    # return(list(
+    #   mean = mean(bootest),
+    #   sd = sqrt(var(bootest)),
+    #   quantile = quantile(bootest, probs = c(0.025, 0.975)),
+    #   bootdata = data.frame(effect_reference, effect_comparator, ATE=bootest),
+    #   reference = reference,
+    #   comparator = comparator
+    # ))
+    if (family == "binomial") {
+      return(list(
+        RD_mean = mean(bootest_RD),
+        RR_mean = mean(bootest_RR),
+        OR_mean = mean(bootest_OR),
+        RD_sd = sqrt(var(bootest_RD)),
+        RR_sd = sqrt(var(bootest_RR)),
+        OR_sd = sqrt(var(bootest_OR)),
+        RD_quantile = quantile(bootest_RD, probs = c(0.025, 0.975)),
+        RR_quantile = quantile(bootest_RR, probs = c(0.025, 0.975)),
+        OR_quantile = quantile(bootest_OR, probs = c(0.025, 0.975)),
+        bootdata = data.frame(
+          effect_reference = effect_reference,
+          effect_comparator = effect_comparator,
+          RD = bootest_RD,
+          RR = bootest_RR,
+          OR = bootest_OR
+        ),
+        reference = reference,
+        comparator = comparator
+      ))
+    } else {
+      return(list(
+        RD_mean = mean(bootest_RD),
+        RD_sd = sqrt(var(bootest_RD)),
+        RD_quantile = quantile(bootest_RD, probs = c(0.025, 0.975)),
+        bootdata = data.frame(
+          effect_reference = effect_reference,
+          effect_comparator = effect_comparator,
+          RD = bootest_RD
+        ),
+        reference = reference,
+        comparator = comparator
+      ))
+    }
 
   }
 }
@@ -348,7 +475,7 @@ testdata <- readr::read_csv("R/continuous_outcome_data.csv")
 testdata$a_3 <- rbinom(n=length(testdata$y),1,p=0.4)
 testdata$a_4 <- rbinom(n=length(testdata$y),1,p=0.6)
 start<-Sys.time()
-model1 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2+a_3+a_4,
+model1 <- bayesmsm(ymodel = y ~ a_1+a_2+a_3+a_4,
                  nvisit = 4,
                  reference = c(rep(0,4)),
                  comparator = c(rep(1,4)),
@@ -358,6 +485,7 @@ model1 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2+a_3+a_4,
                  nboot = 1000,
                  optim_method = "BFGS",
                  estimand = "RD",
+                 seed = 890123,
                  parallel = FALSE,
                  ncore = 10)
 Sys.time()-start
@@ -374,17 +502,18 @@ quantile(bootoutput$ATE, probs=c(0.025,0.975))
 # setwd("C:/Users/YanXi/Downloads")
 testdata2 <- readr::read_csv("R/continuous_outcome_data.csv")
 start<-Sys.time()
-model2 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2,
+model2 <- bayesmsm(ymodel = y ~ a_1+a_2,
                            nvisit = 2,
                            reference = c(rep(0,2)),
                            comparator = c(rep(1,2)),
                            family = "gaussian",
                            data = testdata2,
-                           # wmean = rep(1, 1000),
-                           wmean = testdata2$bayeswt,
+                           wmean = rep(1, 1000),
+                           # wmean = testdata2$bayeswt,
                            nboot = 1000,
                            optim_method = "BFGS",
-                           estimand = "RD",
+                           # estimand = "RD",
+                           seed = 890123,
                            parallel = TRUE,
                            ncore = 6)
 Sys.time()-start
@@ -411,7 +540,7 @@ quantile(bootoutput2$ATE, probs=c(0.025,0.975))
 # setwd("C:/Users/YanXi/Downloads")
 testdata3 <- readr::read_csv("R/binary_outcome_data.csv")
 start<-Sys.time()
-model3 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2,
+model3 <- bayesmsm(ymodel = y ~ a_1+a_2,
                            nvisit = 2,
                            reference = c(rep(0,2)),
                            comparator = c(rep(1,2)),
@@ -420,8 +549,9 @@ model3 <- bayesm_bootstrap(ymodel = y ~ a_1+a_2,
                            wmean = rep(1, 1000),
                            nboot = 1000,
                            optim_method = "BFGS",
-                           estimand = "OR",
-                           parallel = TRUE,
+                           # estimand = "OR",
+                           seed = 890123,
+                           parallel = FALSE,
                            ncore = 6)
 Sys.time()-start
 bootoutput3 = model3$bootdata
