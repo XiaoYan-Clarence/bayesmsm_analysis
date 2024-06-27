@@ -158,6 +158,29 @@ bayesmsm <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     stop("Current version only handles continuous (gaussian) and binary (binomial) outcomes.")
   }
 
+  calculate_effect <- function(intervention_levels, variables, param_estimates) {
+    # Start with the intercept term
+    effect<-effect_intercept<-param_estimates[1]
+
+    # Go through each predictor and add its contribution
+    for (i in 1:length(variables$predictors)) {
+      term <- variables$predictors[i]
+      term_variables <- unlist(strsplit(term, ":"))
+      term_index <- which(names(param_estimates) == term)
+
+      # Calculate the product of intervention levels for the interaction term
+      term_contribution <- param_estimates[term_index]
+      for (term_variable in term_variables) {
+        var_index <- which(variables$predictors == term_variable)
+        term_contribution <- term_contribution * intervention_levels[var_index]
+      }
+
+      # Add the term contribution to the effect
+      effect <- effect + term_contribution
+    }
+
+    return(effect)
+  }
 
   # parallel computing only for this bootstrap step;
   if (parallel == TRUE){
@@ -335,6 +358,7 @@ bayesmsm <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
     effect_comparator <- numeric(nboot)
 
     for (j in 1:nboot) {
+
       alpha <- as.numeric(rdirichlet(1, rep(1.0, length(Y))))
 
       maxim <- optim(inits1,
@@ -418,7 +442,7 @@ bayesmsm <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
 
 
     }
-    #saving output for the non-parallel setting;
+    # saving output for the non-parallel setting;
     # return(list(
     #   mean = mean(bootest),
     #   sd = sqrt(var(bootest)),
@@ -514,7 +538,7 @@ model2 <- bayesmsm(ymodel = y ~ a_1+a_2,
                            optim_method = "BFGS",
                            # estimand = "RD",
                            seed = 890123,
-                           parallel = TRUE,
+                            parallel = TRUE,
                            ncore = 6)
 Sys.time()-start
 bootoutput2 = model2$bootdata

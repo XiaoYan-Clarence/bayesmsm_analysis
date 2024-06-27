@@ -386,7 +386,6 @@ bayesweight <- function(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
     posterior <- as.matrix(out.mcmc[[1]])
   }
 
-
   diagnostics <- geweke.diag(out.mcmc)
 
   # Check diagnostics for convergence issues
@@ -531,9 +530,9 @@ weights2 <- bayesweight(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
                         n.iter = 250,
                         n.burnin = 50,
                         n.thin = 5,
-                        n.chains = 1,
+                        n.chains = 2,
                         seed = 890123,
-                        parallel = FALSE)
+                        parallel = TRUE)
 Sys.time()-start
 weights2
 
