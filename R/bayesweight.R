@@ -462,11 +462,14 @@ bayesweight <- function(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
   # Calculate probabilities for each visit
   parameter_map <- colnames(posterior)
 
+  # Complete data: length N3
+  # Subset data: non-missing
+
   for (nvisit in 1:n_visits) {
     predictors_c <- trtmodel[[nvisit]]$predictors
     predictors_s <- trtmodel_s[[nvisit]]$predictors
 
-    design_matrix_c <- cbind(1, data[, predictors_c, drop = FALSE])
+    design_matrix_c <- cbind(1, data[, predictors_c, drop = FALSE]) # Code with complete data "data"
     design_matrix_s <- cbind(1, data[, predictors_s, drop = FALSE])
 
     beta_indices_c <- match(c(sprintf("b%d0", nvisit),
@@ -480,15 +483,18 @@ bayesweight <- function(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
     for (j in 1:n_posterior) {
       psc[nvisit, j, ] <- expit(posterior[j, beta_indices_c] %*% t(design_matrix_c))
       psm[nvisit, j, ] <- expit(posterior[j, beta_indices_s] %*% t(design_matrix_s))
+      # For censoring: need to have two more lines: csc and csm (censoring score marginal) for stablizers
     }
   }
 
   # Calculate the product of probabilities across visits for each posterior and observation
   numerator <- apply(psm, c(2, 3), prod)  # Apply 'prod' across the first dimension (visits)
   denominator <- apply(psc, c(2, 3), prod)  # Same for psc
+  # For censoring: two more numerator and denominator
 
   # Calculate weights by element-wise division
   weights <- numerator / denominator  # Resulting in a 40 (posterior samples) x 1000 (observations) matrix
+  # For censoring: weights <- (numerator_trt * numerator_cen) / (denominator_trt * denominator_cen)
 
   # Mean weight across all observations
   wmean <- colMeans(weights)

@@ -4,24 +4,33 @@ for(i in 1:N){
 
 # visit 1;
 # marginal treatment assignment model, visit 1;
-a_1s[i] ~ dbern(pa_1s[i])
-pa_1s[i] <- ilogit(bs10)
+A1s[i] ~ dbern(pA1s[i])
+pA1s[i] <- ilogit(bs10)
 
 # conditional treatment assignment model, visit 1;
-a_1[i] ~ dbern(pa_1[i])
-pa_1[i] <- ilogit(b10 + b11*w1[i] + b12*w2[i] + b13*L1_1[i] + b14*L2_1[i])
+A1[i] ~ dbern(pA1[i])
+pA1[i] <- ilogit(b10 + b11*L11[i] + b12*L21[i])
 
 # visit 2;
 # marginal treatment assignment model, visit 2;
-a_2s[i] ~ dbern(pa_2s[i])
-pa_2s[i] <- ilogit(bs20 + bs21*a_1s[i])
+A2s[i] ~ dbern(pA2s[i])
+pA2s[i] <- ilogit(bs20 + bs21*A1s[i])
 
 # conditional treatment assignment model, visit 2;
-a_2[i] ~ dbern(pa_2[i])
-pa_2[i] <- ilogit(b20 + b21*w1[i] + b22*w2[i] + b23*L1_1[i] + b24*L2_1[i] + b25*L1_2[i] + b26*L2_2[i] + b27*a_1[i])
+A2[i] ~ dbern(pA2[i])
+pA2[i] <- ilogit(b20 + b21*L11[i] + b22*L21[i] + b23*L12[i] + b24*L22[i] + b25*A1[i])
+
+# visit 3;
+# marginal treatment assignment model, visit 3;
+A3s[i] ~ dbern(pA3s[i])
+pA3s[i] <- ilogit(bs30 + bs31*A1s[i] + bs32*A2s[i])
+
+# conditional treatment assignment model, visit 3;
+A3[i] ~ dbern(pA3[i])
+pA3[i] <- ilogit(b30 + b31*L11[i] + b32*L21[i] + b33*L12[i] + b34*L22[i] + b35*A1[i] + b36*L13[i] + b37*L23[i] + b38*A2[i])
 
 # export quantity in full posterior specification;
-w[i] <- (pa_1s[i]*pa_2s[i])/(pa_1[i]*pa_2[i])
+w[i] <- (pA1s[i]*pA2s[i]*pA3s[i])/(pA1[i]*pA2[i]*pA3[i])
 }
 
 #prior;
@@ -29,8 +38,6 @@ bs10~dnorm(0,.01)
 b10~dnorm(0,.01)
 b11~dnorm(0,.01)
 b12~dnorm(0,.01)
-b13~dnorm(0,.01)
-b14~dnorm(0,.01)
 bs20~dnorm(0,.01)
 bs21~dnorm(0,.01)
 b20~dnorm(0,.01)
@@ -39,6 +46,16 @@ b22~dnorm(0,.01)
 b23~dnorm(0,.01)
 b24~dnorm(0,.01)
 b25~dnorm(0,.01)
-b26~dnorm(0,.01)
-b27~dnorm(0,.01)
+bs30~dnorm(0,.01)
+bs31~dnorm(0,.01)
+bs32~dnorm(0,.01)
+b30~dnorm(0,.01)
+b31~dnorm(0,.01)
+b32~dnorm(0,.01)
+b33~dnorm(0,.01)
+b34~dnorm(0,.01)
+b35~dnorm(0,.01)
+b36~dnorm(0,.01)
+b37~dnorm(0,.01)
+b38~dnorm(0,.01)
 }

@@ -12,6 +12,9 @@ plot_APO <- function(model, effect_type,
                      main = "Average Potential Outcome (APO)",
                      xlab = "Effect", ylab = "Density",
                      xlim = NULL, ylim = NULL, ...) {
+  # Save current graphical parameters
+  old_par <- par(no.readonly = TRUE)
+  on.exit(par(old_par)) # Restore graphical parameters on exit
 
   # Validate input
   if ("bootdata" %in% names(model)) {

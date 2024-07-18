@@ -12,17 +12,36 @@
 #' @examples
 bayesweight_cen <- function(trtmodel.list = list(A1 ~ L11 + L21,
                                                  A2 ~ L11 + L21 + L12 + L22 + A1,
-                                                 A3 ~ L12 + L22 + L13 + L23 + A2),
+                                                 A3 ~ L11 + L21 + L12 + L22 + A1 + L13 + L23 + A2),
                             cenmodel.list = list(C1 ~ L11 + L21,
                                                  C2 ~ L11 + L21 + A1,
-                                                 C3 ~ L12 + L22 + A2),
+                                                 C3 ~ L11 + L21 + A1 + L12 + L22 + A2),
                             data,
                             n.iter = 25000,
-                            n.burnin = 1500,
+                            n.burnin = 15000,
                             n.thin = 5,
                             parallel = FALSE,
                             n.chains = 1,
                             seed = 890123) {
+
+
+
+  # Testing
+  trtmodel.list = list(A1 ~ L11 + L21,
+                       A2 ~ L11 + L21 + L12 + L22 + A1,
+                       A3 ~ L11 + L21 + L12 + L22 + A1 + L13 + L23 + A2)
+  cenmodel.list = list(C1 ~ L11 + L21,
+                       C2 ~ L11 + L21 + A1,
+                       C3 ~ L11 + L21 + A1 + L12 + L22 + A2)
+  data = simdat_cen
+  n.iter = 250
+  n.burnin = 50
+  n.thin = 5
+  parallel = FALSE
+  n.chains = 1
+  seed = 890123
+
+
 
   # Load all the required R packages;
   if (!require(R2jags)){
@@ -54,44 +73,16 @@ bayesweight_cen <- function(trtmodel.list = list(A1 ~ L11 + L21,
   }
 
   trtmodel <- extract_variables_list(trtmodel.list)
-  censmodel <- extract_variables_list(cenmodel.list)
-
-  # Prepare data for JAGS
-  prepare_jags_data <- function(data, trtmodel.list, cenmodel.list) {
-    variable_info_trt <- lapply(trtmodel.list, extract_variables_list)
-    variable_info_cen <- lapply(cenmodel.list, extract_variables_list)
-
-    jags.data <- list(N = nrow(data))
-
-    for (info in variable_info_trt) {
-      response <- info$response
-      predictors <- info$predictors
-      jags.data[[response]] <- data[[response]]
-      for (predictor in predictors) {
-        jags.data[[predictor]] <- data[[predictor]]
-      }
-    }
-
-    for (info in variable_info_cen) {
-      response <- info$response
-      predictors <- info$predictors
-      jags.data[[response]] <- data[[response]]
-      for (predictor in predictors) {
-        jags.data[[predictor]] <- data[[predictor]]
-      }
-    }
-
-    return(jags.data)
-  }
-
-  jags.data <- prepare_jags_data(data, trtmodel.list, cenmodel.list)
+  cenmodel <- extract_variables_list(cenmodel.list)
 
   # Define JAGS model for treatment and censoring
   write_jags_model <- function(trtmodel.list, cenmodel.list) {
     var_info_trt <- lapply(trtmodel.list, extract_variables_list)
     var_info_cen <- lapply(cenmodel.list, extract_variables_list)
 
-    model_string <- "model{\n#N = nobs\nfor(i in 1:N){\n"
+    model_string <- "model{\n"
+
+    all_parameters <- c()
 
     for (v in seq_along(var_info_trt)) {
       visit_trt <- var_info_trt[[v]]
@@ -101,76 +92,129 @@ bayesweight_cen <- function(trtmodel.list = list(A1 ~ L11 + L21,
       response_cen <- visit_cen$response
       predictors_cen <- visit_cen$predictors
 
-      model_string <- paste0(model_string,
-                             "\n# visit ", v, ";\n",
-                             "# marginal treatment assignment model, visit ", v, ";\n",
-                             response_trt, "s[i] ~ dbern(p", response_trt, "s[i])\n")
+      model_string <- paste0(model_string, "\nfor (i in 1:N", v, ") {\n")
 
-      if (v == 1) {
-        model_string <- paste0(model_string, "p", response_trt, "s[i] <- ilogit(bs", v, "0)\n")
-      } else {
-        bs_terms <- paste0("bs", v, "0")
-        for (j in 1:(v-1)) {
-          prev_response_trt <- var_info_trt[[j]]$response
-          bs_terms <- paste(bs_terms, " + bs", v, j, "*", prev_response_trt, "s[i]", sep = "")
-        }
-        model_string <- paste0(model_string, "p", response_trt, "s[i] <- ilogit(", bs_terms, ")\n")
-      }
-
+      # Conditional treatment assignment model
       model_string <- paste0(model_string,
-                             "\n# conditional treatment assignment model, visit ", v, ";\n",
-                             response_trt, "[i] ~ dbern(p", response_trt, "[i])\n",
-                             "p", response_trt, "[i] <- ilogit(b", v, "0")
+                             "\n# conditional model;\n",
+                             response_trt, "[i] ~ dbern(p", v, "[i])\n",
+                             "logit(p", v, "[i]) <- b", v, "0")
       for (p in seq_along(predictors_trt)) {
         model_string <- paste0(model_string, " + b", v, p, "*", predictors_trt[p], "[i]")
+        all_parameters <- c(all_parameters, sprintf("b%d%d", v, p))
       }
-      model_string <- paste0(model_string, ")\n")
+      model_string <- paste0(model_string, "\n")
 
+      # Censoring model
       model_string <- paste0(model_string,
-                             "\n# censoring model, visit ", v, ";\n",
-                             response_cen, "[i] ~ dbern(p", response_cen, "[i])\n",
-                             "p", response_cen, "[i] <- ilogit(c", v, "0")
+                             response_cen, "[i] ~ dbern(cp", v, "[i])\n",
+                             "logit(cp", v, "[i]) <- s", v, "0")
       for (p in seq_along(predictors_cen)) {
-        model_string <- paste0(model_string, " + c", v, p, "*", predictors_cen[p], "[i]")
+        model_string <- paste0(model_string, " + s", v, p, "*", predictors_cen[p], "[i]")
+        all_parameters <- c(all_parameters, sprintf("s%d%d", v, p))
       }
-      model_string <- paste0(model_string, ")\n")
-    }
+      model_string <- paste0(model_string, "\n")
 
-    model_string <- paste0(model_string, "\n# export quantity in full posterior specification;\n",
-                           "w[i] <- (", paste(sapply(seq_along(var_info_trt), function(x) paste0("p", var_info_trt[[x]]$response, "s[i]")), collapse = "*"),
-                           ")/(", paste(sapply(seq_along(var_info_trt), function(x) paste0("p", var_info_trt[[x]]$response, "[i]")), collapse = "*"), ")\n}\n\n#prior;\n")
-
-    for (v in seq_along(var_info_trt)) {
-      visit_trt <- var_info_trt[[v]]
-      predictors_trt <- visit_trt$predictors
-      num_preds_trt <- length(predictors_trt) + 1
-
-      model_string <- paste0(model_string, "bs", v, "0~dnorm(0,.01)\n")
+      # Marginal treatment assignment model
+      model_string <- paste0(model_string,
+                             "\n# marginal model;\n",
+                             response_trt, "s[i] ~ dbern(p", v, "s[i])\n",
+                             "logit(p", v, "s[i]) <- bs", v, "0")
+      all_parameters <- c(all_parameters, sprintf("bs%d0", v))
       if (v > 1) {
-        for (j in 1:(v-1)) {
-          model_string <- paste0(model_string, "bs", v, j, "~dnorm(0,.01)\n")
+        for (j in 1:(v - 1)) {
+          prev_response_trt <- var_info_trt[[j]]$response
+          model_string <- paste0(model_string, " + bs", v, j, "*", prev_response_trt, "s[i]")
+          all_parameters <- c(all_parameters, sprintf("bs%d%d", v, j))
         }
       }
-      for (p in 0:(num_preds_trt - 1)) {
-        model_string <- paste0(model_string, "b", v, p, "~dnorm(0,.01)\n")
+      model_string <- paste0(model_string, "\n")
+
+      # Marginal censoring model
+      model_string <- paste0(model_string,
+                             response_cen, "s[i] ~ dbern(cp", v, "s[i])\n",
+                             "logit(cp", v, "s[i]) <- ts", v, "0")
+      all_parameters <- c(all_parameters, sprintf("ts%d0", v))
+      if (v > 1) {
+        for (j in 1:(v - 1)) {
+          prev_response_trt <- var_info_trt[[j]]$response
+          model_string <- paste0(model_string, " + ts", v, j, "*", prev_response_trt, "s[i]")
+          all_parameters <- c(all_parameters, sprintf("ts%d%d", v, j))
+        }
+      }
+      model_string <- paste0(model_string, "\n}\n")
+    }
+
+    # Priors section
+    model_string <- paste0(model_string, "\n# Priors\n")
+    for (v in seq_along(var_info_trt)) {
+      num_preds_trt <- length(var_info_trt[[v]]$predictors)
+      num_preds_cen <- length(var_info_cen[[v]]$predictors)
+
+      # Treatment priors
+      for (p in 0:num_preds_trt) {
+        model_string <- paste0(model_string, "b", v, p, " ~ dunif(-10, 10)\n")
       }
 
-      visit_cen <- var_info_cen[[v]]
-      predictors_cen <- visit_cen$predictors
-      num_preds_cen <- length(predictors_cen) + 1
+      # Censoring priors
+      for (p in 0:num_preds_cen) {
+        model_string <- paste0(model_string, "s", v, p, " ~ dunif(-10, 10)\n")
+      }
 
-      model_string <- paste0(model_string, "c", v, "0~dnorm(0,.01)\n")
-      for (p in 0:(num_preds_cen - 1)) {
-        model_string <- paste0(model_string, "c", v, p, "~dnorm(0,.01)\n")
+      # Marginal treatment priors
+      for (j in 0:(v - 1)) {
+        model_string <- paste0(model_string, "bs", v, j, " ~ dunif(-10, 10)\n")
+      }
+
+      # Marginal censoring priors
+      for (j in 0:(v - 1)) {
+        model_string <- paste0(model_string, "ts", v, j, " ~ dunif(-10, 10)\n")
       }
     }
 
-    model_string <- paste(model_string, "}\n", sep = "")
-    cat(model_string, file = "treatment_model.txt")
-    return(model_string)
+    # Add the closing brace for the model block
+    model_string <- paste0(model_string, "}\n")
+
+    # Write the finalized model string to a file
+    cat(model_string, file = "censoring_model.txt")
+
+    return(unique(all_parameters))
   }
 
   write_jags_model(trtmodel.list, cenmodel.list)
+
+  # Prepare data for JAGS
+  prepare_jags_data <- function(data, trtmodel.list, cenmodel.list) {
+    variable_info_trt <- lapply(trtmodel.list, extract_variables_list)
+    variable_info_cen <- lapply(cenmodel.list, extract_variables_list)
+
+    # Collect all variables from trtmodel and cenmodel
+    all_vars <- unique(unlist(lapply(c(variable_info_trt, variable_info_cen), function(info) {
+      c(info$response, info$predictors)
+    })))
+
+    # Initialize the list to pass to JAGS
+    jags.data <- list()
+
+    # Add each column of data to the jags.data list, with NA values removed
+    for (col in all_vars) {
+      if (!is.na(col)) {
+        jags.data[[col]] <- data[[col]][!is.na(data[[col]])]
+      }
+    }
+
+    # Determine N for each visit based on the length of non-NA values of the response variable
+    for (v in seq_along(variable_info_trt)) {
+      response_trt <- variable_info_trt[[v]]$response
+      jags.data[[paste0("N", v)]] <- sum(!is.na(data[[response_trt]]))
+    }
+
+    return(jags.data)
+  }
+
+
+  jags.data <- prepare_jags_data(data, trtmodel.list, cenmodel.list)
+  jags.params <- write_jags_model(trtmodel.list, cenmodel.list)
 
   # Run JAGS model
   if (parallel == TRUE) {
@@ -187,7 +231,7 @@ bayesweight_cen <- function(trtmodel.list = list(A1 ~ L11 + L21,
       library(R2jags)
       jags.parallel(data = jags.data,
                     parameters.to.save = jags.params,
-                    model.file = "treatment_model.txt",
+                    model.file = "censoring_model.txt",
                     n.chains = n.chains,
                     n.iter = n.iter,
                     n.burnin = n.burnin,
@@ -205,7 +249,7 @@ bayesweight_cen <- function(trtmodel.list = list(A1 ~ L11 + L21,
     }
     jagsfit <- jags(data = jags.data,
                     parameters.to.save = jags.params,
-                    model.file = "treatment_model.txt",
+                    model.file = "censoring_model.txt",
                     n.chains = 1,
                     n.iter = n.iter,
                     n.burnin = n.burnin,
@@ -250,7 +294,9 @@ bayesweight_cen <- function(trtmodel.list = list(A1 ~ L11 + L21,
   numerator <- apply(psm, c(2, 3), prod)
   denominator <- apply(psc, c(2, 3), prod)
 
-  weights <- numerator / denominator
+  # weights <- numerator / denominator
+  weights <- (numerator_trt * numerator_cen) / (denominator_trt * denominator_cen)
+
   wmean <- colMeans(weights)
 
   return(wmean)

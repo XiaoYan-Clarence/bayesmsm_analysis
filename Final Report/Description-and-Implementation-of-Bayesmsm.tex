@@ -1,0 +1,85 @@
+% !TeX root = RJwrapper.tex
+\title{Bayesmsm: An R package for longitunal causal analysis using Bayesian Marginal Structural Models}
+
+
+\author{by Xiao Yan and Kuan Liu}
+
+\maketitle
+
+\abstract{%
+Observational studies offer a viable, efficient, and low-cost design to readily gather evidence on exposure effects. Although more practical, exposure mechanism is nonrandomized and causal inference methods are required to draw causal conclusions. Popular approaches used in health research are predominantly frequentist methods. Bayesian approaches have unique estimation features that are useful in many settings, however, there is a general lack of open-access software packages to carry out these analyses. Our project seeks to address this gap by developing a user-friendly R package named ``bayesmsm'' for the implementation of the Bayesian Marginal Structural Models for longitudinal data with continuous or binary outcome.
+}
+
+\section{Introduction}\label{introduction}
+
+Interactive data graphics provides plots that allow users to interact them. One of the most basic types of interaction is through tooltips, where users are provided additional information about elements in the plot by moving the cursor over the plot.
+
+This paper will first review some R packages on interactive graphics and their tooltip implementations. A new package \CRANpkg{ToOoOlTiPs} that provides customized tooltips for plot, is introduced. Some example plots will then be given to showcase how these tooltips help users to better read the graphics.
+
+\section{Longitudinal causal framework and Bayesian Marginal Structural Models (BMSMs)}\label{longitudinal-causal-framework-and-bayesian-marginal-structural-models-bmsms}
+
+\subsubsection{2.1 Notation}\label{notation}
+
+In our analytical framework, let \(n\) be the total number of study subjects enrolled indexed by \(i, i = 1, \ldots, n\) and \(J\) the number of visits indexed by \(j, j = 1, \ldots, J\) (Liu 2021). \(Y_i\), \(X_{ij}\), and \(Z_{ij}\) are the random variables representing an end-of-study response, covariates, and the treatment for individual \(i\) at visit \(j\). We also define the treatment history up to visit \(j\) as \(\bar{Z}_{ij} = \{ Z_{i1}, \ldots, Z_{ij} \}\) with covariates \(\bar{X}_{ij} = \{ X_{i1}, \ldots, X_{ij} \}\). Further, we assume at each visit \(j\), \(X_{ij}\) is measured first and treatment assignment \(Z_{ij}\) is decided after (Liu 2021).
+
+\section{Background}\label{background}
+
+Some packages on interactive graphics include \CRANpkg{plotly} (\textbf{plotly?}) that interfaces with Javascript for web-based interactive graphics, \CRANpkg{crosstalk} (\textbf{crosstalk?}) that specializes cross-linking elements across individual graphics. The recent R Journal paper \CRANpkg{tsibbletalk} (\textbf{RJ-2021-050?}) provides a good example of including interactive graphics into an article for the journal. It has both a set of linked plots, and also an animated gif example, illustrating linking between time series plots and feature summaries.
+
+\section{\texorpdfstring{Customizing tooltip design with \pkg{ToOoOlTiPs}}{Customizing tooltip design with }}\label{customizing-tooltip-design-with}
+
+\pkg{ToOoOlTiPs} is a packages for customizing tooltips in interactive graphics, it features these possibilities.
+
+\section{A gallery of tooltips examples}\label{a-gallery-of-tooltips-examples}
+
+The \CRANpkg{palmerpenguins} data (\textbf{palmerpenguins?}) features three penguin species which has a lovely illustration by Alison Horst in Figure \ref{fig:penguins-alison}.
+
+\begin{figure}
+\includegraphics[width=1\linewidth,height=0.3\textheight]{figures/penguins} \caption{Artwork by \@allison\_horst}\label{fig:penguins-alison}
+\end{figure}
+
+Table \ref{tab:penguins-tab-static} prints at the first few rows of the \texttt{penguins} data:
+
+Figure \ref{fig:penguins-ggplot} shows an plot of the penguins data, made using the \CRANpkg{ggplot2} package.
+
+\begin{verbatim}
+# penguins %>% 
+#   ggplot(aes(x = bill_depth_mm, y = bill_length_mm, 
+#              color = species)) + 
+#   geom_point()
+\end{verbatim}
+
+\section{Summary}\label{summary}
+
+We have displayed various tooltips that are available in the package \pkg{ToOoOlTiPs}.
+
+\section*{References}\label{references}
+\addcontentsline{toc}{section}{References}
+
+\phantomsection\label{refs}
+\begin{CSLReferences}{1}{0}
+\bibitem[\citeproctext]{ref-liuBayesianCausal}
+Liu, K. 2021. {``Bayesian Causal Inference with Longitudinal Data.''}
+
+\end{CSLReferences}
+
+
+\address{%
+Xiao Yan\\
+Dalla Lana School of Public Health, University of Toronto\\%
+Department of Biostatistics\\ Toronto, Canada\\
+%
+\url{https://github.com/XiaoYan-Clarence}\\%
+\textit{ORCiD: \href{https://orcid.org/0000-1721-1511-1101 (?)}{0000-1721-1511-1101 (?)}}\\%
+\href{mailto:Clarence.YXA@gmail.com}{\nolinkurl{Clarence.YXA@gmail.com}}%
+}
+
+\address{%
+Kuan Liu\\
+Dalla Lana School of Public Health, University of Toronto\\%
+Department of Biostatistics, Toronto, Canada\\ Institute of Health Policy, Management and Evaluation, Toronto, Canada\\
+%
+\url{https://www.kuan-liu.com/}\\%
+\textit{ORCiD: \href{https://orcid.org/0000-0002-0912-0225 (?)}{0000-0002-0912-0225 (?)}}\\%
+\href{mailto:kuan.liu@utoronto.ca}{\nolinkurl{kuan.liu@utoronto.ca}}%
+}
