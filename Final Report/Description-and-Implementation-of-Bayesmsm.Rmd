@@ -1,40 +1,53 @@
 ---
-title: "Bayesmsm: An R package for longitunal causal analysis using Bayesian Marginal Structural Models"
+title: 'Bayesmsm: An R package for longitunal causal analysis using Bayesian Marginal
+  Structural Models'
+author:
+- name: Xiao Yan
+  affiliation: Dalla Lana School of Public Health, University of Toronto
+  address:
+  - Department of Biostatistics
+  - Toronto, Canada
+  url: "https://github.com/XiaoYan-Clarence"
+  orcid: "0000-1721-1511-1101 (?)"
+  email: Clarence.YXA@gmail.com
+- name: Kuan Liu
+  affiliation: Dalla Lana School of Public Health, University of Toronto
+  address:
+  - Department of Biostatistics, Toronto, Canada
+  - Institute of Health Policy, Management and Evaluation, Toronto, Canada
+  url: "https://www.kuan-liu.com/"
+  email: kuan.liu@utoronto.ca
+  orcid: "0000-0002-5017-1276"
 date: "2024-07-02"
-abstract: >
-  Observational studies offer a viable, efficient, and low-cost design to readily gather evidence on exposure effects. Although more practical, exposure mechanism is nonrandomized and causal inference methods are required to draw causal conclusions. Popular approaches used in health research are predominantly frequentist methods. Bayesian approaches have unique estimation features that are useful in many settings, however, there is a general lack of open-access software packages to carry out these analyses. Our project seeks to address this gap by developing a user-friendly R package named “bayesmsm” for the implementation of the Bayesian Marginal Structural Models for longitudinal data with continuous or binary outcome.
-draft: true
-author:  
-  - name: Xiao Yan
-    affiliation: Dalla Lana School of Public Health, University of Toronto
-    address:
-    - Department of Biostatistics
-    - Toronto, Canada
-    url: https://github.com/XiaoYan-Clarence
-    orcid: 0000-1721-1511-1101 (?)
-    email:  Clarence.YXA@gmail.com
-  - name: Kuan Liu
-    affiliation:
-    - Dalla Lana School of Public Health, University of Toronto
-    address:
-    - Department of Biostatistics, Toronto, Canada
-    - Institute of Health Policy, Management and Evaluation, Toronto, Canada
-    url: https://www.kuan-liu.com/
-    email: kuan.liu@utoronto.ca
-    orcid: 0000-0002-0912-0225 (?)
-type: package
-output: 
+output:
   rjtools::rjournal_article:
-    self_contained: yes
-    toc: no
+    self_contained: true
+    toc: false
+abstract: "Observational studies offer a viable, efficient, and low-cost design to
+  readily gather evidence on exposure effects. Although more practical, exposure mechanism
+  is nonrandomized and causal inference methods are required to draw causal conclusions.
+  Popular approaches used in health research are predominantly frequentist methods.
+  Bayesian approaches have unique estimation features that are useful in many settings,
+  however, there is a general lack of open-access software packages to carry out these
+  analyses. Our project seeks to address this gap by developing a user-friendly R
+  package named “bayesmsm” for the implementation of the Bayesian Marginal Structural
+  Models for longitudinal data with continuous or binary outcome.\n"
+type: package
+draft: true
 bibliography: RJreferences.bib
-editor_options: 
-  markdown: 
+editor_options:
+  markdown:
     wrap: 72
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
+  collapse = TRUE,
+  comment = "#>",
+  fig.align = 'center',
+  fig.width = 8,
+  fig.height = 6
+)
 
 devtools::install_github("Kuan-Liu-Lab/bayesmsm")
 library(bayesmsm)
@@ -62,58 +75,49 @@ read the graphics.
 
 ## Notation
 
-In our analytical framework, let $n$ be the total number of study
-subjects enrolled indexed by $i, i = 1, \ldots, n$ and $J$ the number of
-visits indexed by $j, j = 1, \ldots, J$ [@liuBayesianCausal]. $Y_i$,
-$X_{ij}$, and $Z_{ij}$ are the random variables representing an
-end-of-study response, covariates, and the treatment for individual $i$
-at visit $j$. We also define the treatment history up to visit $j$ as
-$\bar{Z}_{ij} = \{ Z_{i1}, \ldots, Z_{ij} \}$ with covariates
-$\bar{X}_{ij} = \{ X_{i1}, \ldots, X_{ij} \}$. Further, we assume at
-each visit $j$, $X_{ij}$ is measured first and treatment assignment
-$Z_{ij}$ is decided after [@liuBayesianCausal].
+In this section, we introduce the notation for the Bayesian Marginal Structural Models (BMSMs). Let \( n \) be the total number of subjects enrolled in the study, indexed by \( i = 1, \ldots, n \). Each subject is observed over \( J \) visits, indexed by \( j = 1, \ldots, J \). For each subject \( i \) at visit \( j \), let \( Y_{i} \) denote the final outcome, \( X_{ij} \) the covariates, and \( Z_{ij} \) the treatment. The full histories of these variables up to visit \( j \) for subject \( i \) are represented as \( Y_{i} \), \( \bar{X}_{ij} = \{X_{i1}, \ldots, X_{ij}\} \), and \( \bar{Z}_{ij} = \{Z_{i1}, \ldots, Z_{ij}\} \), respectively. At each visit \( j \), \( X_{ij} \) is measured first, and \( Z_{ij} \) is decided and recorded afterward [@liuBayesianCausal].
+
+In the case of right-censoring, we introduce the censoring indicator \( C_{ij} \), where \( C_{ij} = 1 \) if the subject \( i \) is censored at visit \( j \) and \( C_{ij} = 0 \) if not censored. The full history of the censoring indicators up to visit \( j \) is denoted as \( \bar{C}_{ij} = \{C_{i1}, \ldots, C_{ij}\} \). The observed data for each subject \( i \) at visit \( j \) is thus represented by \( \bar{V}_{ij} = Y_{i}, \bar{X}_{ij}, \bar{Z}_{ij-1}, \bar{C}_{ij}\} \).
+
+<!--
+In the presence of right-censoring, it is crucial to account for the potential bias introduced by non-random loss to follow-up. Therefore, we extend the Bayesian framework to incorporate inverse probability of censoring weights (IPCW) alongside the treatment assignment weights.
+
+We define the subject-specific weights as the ratio of the joint distributions under the experimental and observational settings, \( w_{ij} = \frac{P_E(\bar{V}_{ij} \mid \bar{v}_n)}{P_O(\bar{V}_{ij} \mid \bar{v}_n)} \). To incorporate right-censoring, we further adjust these weights by the inverse probability of censoring, resulting in the stabilized weights \( w^*_{ij} \).
+
+For the Bayesian estimation, we use Markov chain Monte Carlo (MCMC) methods to sample from the posterior distributions of the model parameters. The posterior predictive distribution of the observed data is integrated over the parameters \( \beta, \gamma, \theta \), denoted as \( P_O(\bar{V}_{ij} \mid \bar{v}_n) = \int_{\beta, \gamma, \theta} P_O(\bar{V}_{ij} \mid \beta, \gamma, \theta) P(\beta, \gamma, \theta \mid \bar{v}_n) d\beta d\gamma d\theta \) [@liuRepeatedlyMeasured; @robinsMarginalStructural].
+-->
+
+
 
 ## Causal structure
 
-In the observational context of our study, we introduce a causal
-structure that predicates the non-repeatedly measured outcome $Y$ on
-time-varying treatments $Z$ and time-varying covariates $X$. Unlike
-models with time-dependent outcomes, our focus is on the final outcome
-which is influenced by the entire treatment history and past covariates.
-\cite{liuRepeatedlyMeasured}
+Under the observational setting, the treatment decision at each visit \( j \) is made based on covariates \( X_{ij} \) and the past treatment assignment history \( \bar{Z}_{ij-1} \). We assume that the final outcome \( Y_{i} \) is influenced by the entire history of covariates and treatment assignments.
 
-Figure 1 shows the causal structure for two consecutive visits, which is
-the Directed Acyclic Graph (DAG) between treatment assignment,
-covariates and the final outcome. A causal graph is a directed acyclic
-graph in which the vertices (nodes) of the graph represent variables and
-the directed edges (arrows) represent direct causal effects
-\cite{robinsMarginalStructural}. Here, $w_1$ and $w_2$ are two baseline
-covariates. The baseline covariates $W$ and time-varying covariates
-$L_1, L_2$ potentially influence treatment assignments $Z_1, Z_2$, and
-ultimately, the outcome $Y$. Each treatment decision $Z_j$ at visit $j$
-is determined at the end of that visit, based on all previous
-information. This DAG also assumes that there is no unmeasured
-confounding, allowing us to better interpret the causal effect of
-treatment on the outcome. \cite{liu2023section3}
+The hypothesized causal structure for two consecutive visits and a follow-up response is represented in a directed acyclic graph (DAG) in the next section. This structure assumes that there is no competition for treatment resources between subjects at each visit, meaning that the treatment assignment for one subject does not affect the outcome of another subject. Furthermore, we assume that there are no unmeasured confounders with respect to the outcome and the treatment at any given visit. This assumption is often referred to as the sequential ignorability of treatment assignment, which implies that given the observed history up to visit \( j \), the treatment assignment \( Z_{ij} \) is independent of the potential outcomes [@liuRepeatedlyMeasured].
 
-Further, we assume that the treatment decisions are made independently
-for each subject at each visit, i.e. there is no competition for
-treatment resources between subjects at each visit
-\cite{liuRepeatedlyMeasured}.
+<!--
+To formally describe the causal structure, let \( Y_{ij} \) denote the outcome at visit \( j \) for subject \( i \), which is influenced by the observed history \( \bar{V}_{ij} \). The treatment assignment mechanism is modeled as \( Z_{ij} \mid \bar{V}_{ij} \). The absence of unmeasured confounders and the assumption of no interference between subjects ensure that the sequential ignorability condition holds: \( Z_{ij} \perp Y_{ij+1} \mid \bar{V}_{ij} \). This implies that the treatment assignment at visit \( j \) is conditionally independent of the future outcome given the observed history.
+
+In the presence of right-censoring, the censoring process must also be accounted for in the causal structure. Let \( C_{ij} \) be the censoring indicator, where \( C_{ij} = 1 \) if the subject is censored at visit \( j \) and \( C_{ij} = 0 \) otherwise. The causal structure then includes the censoring mechanism, and we assume that the censoring process is independent of the potential outcomes given the observed history, denoted as \( C_{ij} \perp Y_{ij+1} \mid \bar{V}_{ij} \). This assumption allows us to correctly adjust for the censoring process using inverse probability of censoring weights (IPCW).
+
+By incorporating these assumptions and structures, we can develop a robust framework for causal inference using BMSMs in longitudinal studies with right-censoring. The detailed methodology and implementation of this framework are elaborated in subsequent sections, building on the foundational principles outlined in previous research [@liuRepeatedlyMeasured; @robinsMarginalStructural].
+-->
+
+
 
 ## Directed Acyclic Graph (DAG)
 
-```{r}
+```{r figs1, fig.cap="Example DAG for 2 visits"}
 library(DiagrammeR)
 grViz("
     digraph causal {
     # Nodes
     node [shape=ellipse, style=filled, color=lightgray]
-    Xij_minus1 [label = 'X_{ij-1}']
-    Zij_minus1 [label = 'Z_{ij-1}']
-    Xij [label = 'X_{ij}']
-    Zij [label = 'Z_{ij}']
-    Yi [label = 'Y_{i}']
+    Xij_minus1 [label = 'X_ij-1']
+    Zij_minus1 [label = 'Z_ij-1']
+    Xij [label = 'X_ij']
+    Zij [label = 'Z_ij']
+    Yi [label = 'Y_i']
 
     # Edges
     edge [color=black, arrowhead=vee]
@@ -129,49 +133,73 @@ grViz("
 
 ```
 
+Figure 1 shows the causal structure for two consecutive visits with a final outcome , which is
+the Directed Acyclic Graph (DAG) between treatment assignment,
+covariates and the final outcome. A causal graph is a directed acyclic
+graph in which the vertices (nodes) of the graph represent variables and
+the directed edges (arrows) represent direct causal effects
+[@robinsMarginalStructural]. Here, \( X_{ij-1} \) is the baseline
+covariate. The covariates \( X_{ij-1} \), \( X_{ij} \) and time-varying covariate
+\( Z_{ij-1} \) potentially influence treatment assignments \( Z_{ij} \), and
+ultimately, the outcome \( Y_{i} \). Each treatment decision \( Z_j \) at visit \( j \)
+is determined at the end of that visit, based on all previous
+information. This DAG also assumes that there is no unmeasured
+confounding.
+
+
+
 ## Data-generating mechanism causal framework
 
-In our investigation, we construct a data-generating mechanism for a
-non-repeatedly measured outcome $Y$. Under the data-generating
+We construct a data-generating mechanism for a
+non-repeatedly measured outcome \( Y_{i} \). Under the data-generating
 mechanism, causal inference with observational data can simply be viewed
-as a prediction problem. \cite{liuRepeatedlyMeasured} The
-data-generating mechanism focuses on expressing experimental and
-observational relationships between treatment and outcome, and is
-formulated to address causal problem using probability distributions.
-The prediction problem can thus be framed as drawing inference from an
-ideal population in which treatment is unconfounded, but the observed
-data is confounded. The experimental data generating mechanism is
+as a prediction problem [@liuRepeatedlyMeasured]. This framework allows us to conceptualize the problem as drawing inference from an ideal population, where treatment assignment is unconfounded (similar to a randomized setting), and comparing it to the data observed in a confounded observational setting [@dawid2010identifying; @roysland2011martingale; @arjas2012causal; @saarelaBayesianEstimation; @hernanRobins2016]. The experimental data generating mechanism is
 indexed by $\mathcal{E}$, which generates samples from the ideal
 population where treatment assignment at each visit is independent of
 the covariates given past treatment assignments, i.e.,
-$Z_{ij} \perp X_{ij} | Z_{ij-1}$; the observational data generating
-mechanism is indexed by $\mathcal{O}$, which generates samples from the
+\( Z_{ij} \perp X_{ij} \mid Z_{ij-1} \); the observational data generating
+mechanism is indexed by \( \mathcal{O} \), which generates samples from the
 observed population where independence does not hold and treatment
-assignment $Z_{ij}$ at visit $j$ depends on $\{X_{ij}, Z_{ij-1}\}$.
-\cite{liuRepeatedlyMeasured}
+assignment \( Z_{ij} \) at visit \( j \) depends on \( \{X_{ij}, Z_{ij-1}\} \) [@liuRepeatedlyMeasured].
 
 Under such data-generating mechanism, we have two important assumptions.
 The first assumption has already been stated above, which is
-$Z_{ij} \perp X_{ij} | Z_{ij-1}$. The second positivity assumption
+\( Z_{ij} \perp X_{ij} \mid Z_{ij-1} \). The second positivity assumption
 states that at each visit, any treatment sequence that is compatible
 with the complete treatment history has a non-zero probability of
-occuring, i.e. $0 < P(Z_{ij} | X_{ij}, Z_{ij-1}) < 1$ for
-$j = 1, \ldots, J$. \cite{liu2023slides}
+occuring, i.e. \( 0 < P(Z_{ij} | X_{ij}, Z_{ij-1}) < 1 \) for
+\( j = 1, \ldots, J \).
 
-Under $\mathcal{E}$, we can specify the marginal outcome model as
-\cite{liu2023slides}:
+Under \( \mathcal{E} \), we can specify the marginal outcome model as
+[@liuBayesianCausal]:
 
-$$
+\(
    g_y( E_{\mathcal{E}}[{y}_{i} \mid \bar{z}_{iJ}]) = {\Theta} \
    \sum_{j=1}^J z_{ij}, \quad j=1,\ldots,J.
-$$
+\)
 
-We draw inference from an ideal population ($\mathcal{E}$) but with
-observed data subject to confounding ($\mathcal{O}$). Here, ${\Theta}$
+We draw inference from an ideal population (\( \mathcal{E} \)) but with
+observed data subject to confounding (\( \mathcal{O} \)). Here, \({\Theta}\)
 is known as the marginal treatment effect. For example, if we have a
-binary time-varying treatment, ${\Theta}$ is interpreted as, for 1 unit
-increase in the cumulative treatment, the expected value of $y_i$
-increases by ${\Theta}$.
+binary time-varying treatment, \( {\Theta} \) is interpreted as the expected change in the final outcome \( Y_i \) relative to a one-unit increase in the cumulative treatment exposure prior to visit \( j \).
+
+<!--
+
+Causal inference with observational data can be viewed as a prediction problem under the data-generating mechanism framework. This framework allows us to conceptualize the problem as drawing inference from an ideal population, where treatment assignment is unconfounded (similar to a randomized setting), and comparing it to the data observed in a confounded observational setting [@dawid2010identifying; @roysland2011martingale; @arjas2012causal; @saarelaBayesianEstimation; @hernanRobins2016]. The experimental data-generating mechanism, indexed by \( E \), generates samples from the ideal target population where treatment assignment at each visit is independent of the covariates and final outcomes, formally represented as \( Z_{ij} \perp \{\bar{X}_{ij}, Y_{i}\} \mid \bar{Z}_{ij-1} \). Here, \( \perp \) specifies that independence holds under \( E \).
+
+In contrast, the observational data-generating mechanism, indexed by \( O \), generates samples from the observed population where this independence does not hold. Instead, the treatment assignment \( Z_{ij} \) at visit \( j \) depends on the history of covariates and past treatments, denoted as \( Z_{ij} \mid \{\bar{X}_{ij}, Y_{i}, \bar{Z}_{ij-1}\} \). Under this framework, causal inference involves predicting the marginal, unconfounded treatment effect under \( E \) using data from \( O \).
+
+Given the final outcome \( Y_{i} \), we consider a marginal treatment effect model under \( E \) characterized by the parameter \( \Theta \). This model can be expressed as:
+
+\[ g_Y\left(\mathbb{E}_E \left( Y_i \mid \bar{Z}_{ij} \right) \right) = \Theta h_Z(\bar{Z}_{ij}), \quad j = 1, \ldots, J \]
+
+Here, \( g_Y(\cdot) \) is the link function, and \( h_Z(\bar{Z}_{ij}) \) is a function of the treatment history up to visit \( j \). For example, when \( h_Z(\bar{Z}_{ij}) = \sum_{l=1}^j Z_{il} \), the parameter \( \Theta \) represents the marginal treatment effect of interest. It is interpreted as the expected change in the final outcome \( Y_i \) relative to a one-unit increase in the cumulative treatment exposure prior to visit \( j \).
+
+-->
+
+
+
+<!--
 
 ## Bayesian Framework
 
@@ -243,7 +271,81 @@ compare our results to the frequentist approach. The frequentist
 Marginal Structural Models (MSMs) calculates visit specific propensity
 scores, and fits the weighted linear regression \cite{liu2023section3}.
 
-# Description of bayesmsm
+-->
+
+
+
+## Bayesian Marginal Structural Models with Right-Censoring
+
+The BMSM approach involves calculating the stabilized weights, which are the product of the inverse probability of treatment weights (IPTW) and the inverse probability of censoring weights (IPCW). In the case of right-censoring and conditionally independent censoring based on observed history, subject-visit-specific IPCW weights can be calculated and integrated with IPTW weights when applying conventional MSMs [@robinsMarginalStructural; @hernanRobins2016]. The IPCW weights can be used within two Bayesian methods: the Bayesian MSMs and the two-step BPSA, under the data-generating mechanism causal framework [@saarelaBayesianEstimation].
+
+### IPTW and IPCW Weights
+
+The traditional IPTW subject-visit-specific stabilized weights are calculated as the product of the probabilities of the observed treatment history under the experimental setting to that under the observational setting. Mathematically, the IPTW for subject \( i \) at visit \( j \) is given by:
+
+\[ \phi_{ij}^{(s)} = \prod_{l=1}^{j} \frac{e_{il}^{(s)}(\tilde{z}_{il-1}, \tilde{c}_{il-1} = 0, \alpha_l^{(s)}; E)}{e_{il}^{(s)}(\tilde{z}_{il-1}, \tilde{x}_{il}, \tilde{y}_{i}, \tilde{c}_{il-1} = 0, \beta_l^{(s)}; O)}, \quad j = 1, \ldots, t_i \]
+
+where \( e_{il}^{(s)} \) denotes the propensity score for the \( s \)-th posterior sample of the treatment model parameters \( \alpha \) and \( \beta \).
+
+In addition to the IPTW, IPCW are derived to account for censoring. These weights are calculated using the probabilities of the censoring history under the experimental and observational settings. The IPCW for the \( s \)-th posterior sample are given by:
+
+\[ \psi_{ij}^{(s)} = \prod_{l=1}^{j} \frac{P(c_{il}^{(s)} = 0 \mid \tilde{z}_{il-1}, \tilde{c}_{il-1} = 0, \zeta_l^{(s)}; E)}{P(c_{il}^{(s)} = 0 \mid \tilde{z}_{il-1}, \tilde{x}_{il}, \tilde{y}_{i}, \tilde{c}_{il-1} = 0, \eta_l^{(s)}; O)}, \quad j = 1, \ldots, t_i \]
+
+where \( P(c_{il}^{(s)} = 0) \) represents the probability of not being censored at visit \( l \) for the \( s \)-th posterior sample of the censoring model parameters \( \zeta \) and \( \eta \).
+
+### Combined Weights and Marginal Treatment Effect Estimation
+
+To account for both treatment assignment and censoring biases, the combined stabilized weights for subject \( i \) at visit \( j \) are given by:
+
+\[ \Phi_{ij}^{(s)} = \phi_{ij}^{(s)} \times \psi_{ij}^{(s)}, \quad j = 1, \ldots, t_i \]
+
+These weights are used to adjust the observed outcome up to visit \( t_i \), which are now weighted by \( \Phi_{i}^{(s)} = (1, \phi_{i1}^{(s)} \times \psi_{i1}^{(s)}, \ldots, \phi_{it_i-1}^{(s)} \times \psi_{it_i-1}^{(s)}) \). The marginal treatment effect is then obtained using a weighted generalized estimating equation (GEE) approach, incorporating both IPTW and IPCW [@liuBayesianCausal].
+
+<!--
+Note: I am not sure if this is correct: \Phi_{ij} for non-repeated outcome?
+-->
+
+### Two-step Bayesian PSA
+
+The marginal response model for non-repeated measures is given by:
+
+\[ g_y( E_{\mathcal{E}}[{Y}_{i} \mid \bar{Z}_{ij}]) = {\theta_0 + \theta_1} \
+   \sum_{l=1}^j z_{il}, \quad l=1,\ldots,j. \]
+
+To estimate the treatment effect \( \theta_1 \), we maximize the expected utility function:
+
+\[ \mathbb{E}[U(\theta; v_{ij})] = \int \Phi_{ij} \log P(\tilde{y}_{i} \mid \tilde{z}_{ij}, \theta) P_n(v_{ij}) dv_{ij} \]
+
+where \( v_{ij} = \{\tilde{y}_{i}, \tilde{z}_{ij}, \tilde{x}_{ij}\} \) represents the observed data and \( P_n(v_{ij}) \) is the non-parametric Bayesian bootstrap estimate.
+
+The estimation of BMSMs with right-censoring follows these steps:
+
+1. **Estimate treatment weights \( w_{ij} \)** using posterior samples of the parameters \( \alpha \) and \( \beta \) by fitting a series of logistic regressions in a Bayesian framework.
+2. **Estimate \( P_n(v_{ij}) \)** using the non-parametric Bayesian bootstrap with \( Dirichlet(1,\ldots,1) \) sampling weights [@liuRepeatedlyMeasured].
+
+<!--
+
+The BMSM approach involves calculating the stabilized weights, which are the product of the inverse probability of treatment weights (IPTW) and the IPCW. The IPTW is calculated as the ratio of the probability of the observed treatment history under the experimental setting to that under the observational setting. For right-censoring, the IPCW is similarly calculated as the ratio of the probability of the censoring history under the experimental setting to that under the observational setting. These weights correct for both treatment assignment and censoring biases, ensuring that the treatment effect estimates are unbiased and consistent.
+
+Mathematically, the stabilized weights for subject \( i \) at visit \( j \) are given by:
+
+\[ w_{ij}^* = \frac{P_E(\bar{Z}_{ij} \mid \bar{v}_n) P_E(\bar{C}_{ij} \mid \bar{v}_n)}{P_O(\bar{Z}_{ij} \mid \bar{v}_n) P_O(\bar{C}_{ij} \mid \bar{v}_n)} \]
+
+where \( P_E \) and \( P_O \) represent the probabilities under the experimental and observational settings, respectively, and \( \bar{v}_n \) denotes the observed data for all subjects up to visit \( j \).
+
+For Bayesian estimation, we use Markov chain Monte Carlo (MCMC) methods to sample from the posterior distributions of the model parameters. This involves integrating the posterior predictive distribution of the observed data over the parameters \( \beta, \gamma, \theta \):
+
+\[ P_O(\bar{V}_{ij} \mid \bar{v}_n) = \int_{\beta, \gamma, \theta} P_O(\bar{V}_{ij} \mid \beta, \gamma, \theta) P(\beta, \gamma, \theta \mid \bar{v}_n) d\beta d\gamma d\theta \]
+
+The utility function for Bayesian decision theory is updated to account for censoring, and the estimation of the marginal treatment effect is achieved by maximizing the expected utility function. This approach allows for robust and flexible modeling of longitudinal data, accommodating the complexities of right-censoring and providing reliable causal estimates.
+
+-->
+
+
+
+<!--
+
+# Description of `bayesmsm`
 
 The `bayesmsm` package is developed to implement Bayesian marginal
 structural models (BMSMs) for longitudinal data analysis. It contains
@@ -372,6 +474,95 @@ parameters.
         never treated (0,0), and the comparator level is always treated
         (1,1).
 
+-->
+
+# Description of `bayesmsm`
+
+The `bayesmsm` package is developed to implement Bayesian Marginal Structural Models (BMSMs). It contains three core functions: `bayesweight`, `bayesweight_cen`, and `bayesmsm`. `bayesweight` estimates treatment weights using posterior samples of \( \alpha \) and \( \beta \) via running MCMC with JAGS based on the treatment model input, whereas `bayesweight_cen` extends the function `bayesweight` to handle right-censored data. `bayesmsm` then uses the estimated treatment weights to perform Bayesian non-parametric bootstrap to estimate causal effects. In this section, we describe these functions and their usage in detail.
+
+## Input Dataset Structure
+
+The `bayesmsm` package requires the input dataset to be in wide format. Each row of the data frame corresponds to a single patient treatment record. The dataset must include the following columns: the outcome variable, which can be binary or continuous (`outcome`), the treatment variable at each time point (`treatment`), the covariate variables at each time point (`covariates`), and the censoring indicator at each time point (`censoring`) if there is right-censoring.
+
+### Specifying the Outcome Type
+
+The `bayesmsm` package allows for binary or continuous outcomes. The outcome type should be specified in the `family` argument when calling the `bayesmsm` function. For binary outcomes, the package fits a data-specific weighted log-likelihood of a binomial distribution, while for continuous outcomes, it fits a data-specific weighted log-likelihood of a normal distribution.
+
+## Core Functions
+
+### Bayesian Treatment Effect Weight Estimation Using `bayesweight`
+
+```r
+weights <- bayesweight(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
+                                            a_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + a_1),
+                       data = testdata,
+                       n.iter = 25000,
+                       n.burnin = 15000,
+                       n.thin = 5,
+                       n.chains = 2,
+                       seed = 890123,
+                       parallel = TRUE)
+```
+
+The `bayesweight` function is used to estimate the inverse probability of treatment weights (IPTW). This function works by automatically running MCMC with JAGS based on the treatment model input provided through `trtmodel.list`, and it also saves a JAGS model file in the working directory so that the user can check to review the model specifications.
+
+The function `bayesweight` accepts several arguments including `trtmodel.list`, which is a list of formulas corresponding to each time point with the time-specific treatment variable on the left hand side and pre-treatment covariates to be balanced on the right hand side. Interactions and functions of covariates are allowed. The `data` argument specifies the dataset containing all the variables specified in `trtmodel.list`. The `n.iter`, `n.burnin`, `n.thin`, and `n.chains` arguments control the MCMC simulation parameters, including the total number of iterations, the number of burn-in iterations, the thinning rate, and the number of MCMC chains to run. The `seed` argument ensures reproducibility, and the `parallel` argument indicates whether to run the MCMC chains in parallel. Non-parallel computing requires that `n.chains = 1`. Parallel MCMC requires at least 2 chains because computing is running on 1 core per chain, and we recommend using at most 2 chains less than the number of available cores on the user's computer.
+
+The function returns a list containing the calculated weights for subject-specific treatment effects.
+
+### Handling Right-Censoring with `bayesweight_cen`
+
+```r
+weights <- bayesweight_cen(trtmodel.list = list(A1 ~ L11 + L21,
+                                                A2 ~ L11 + L21 + L12 + L22 + A1,
+                                                A3 ~ L11 + L21 + L12 + L22 + A1 + L13 + L23 + A2),
+                           cenmodel.list = list(C1 ~ L11 + L21,
+                                                C2 ~ L11 + L21 + A1,
+                                                C3 ~ L11 + L21 + A1 + L12 + L22 + A2),
+                           data = simdat_cen,
+                           n.iter = 25000,
+                           n.burnin = 15000,
+                           n.thin = 5,
+                           n.chains = 2,
+                           seed = 890123,
+                           parallel = TRUE)
+```
+
+The `bayesweight_cen` function extends the `bayesweight` function by incorporating inverse probability of censoring weights (IPCW) to handle right-censoring. The arguments are similar to `bayesweight`, with an additional `cenmodel.list` argument for the censoring model. The censoring indicators should take covariates and treatments before that visit in order to indicate at or after which time point the observations were censored.
+
+The function `bayesweight_cen` accepts the following arguments: `trtmodel.list`, which is a list of formulas corresponding to each time point. The `cenmodel.list` is a list of formulas for the censoring model, where the censoring indicators take covariates and treatments before that visit. The `data` argument specifies the dataset containing all the variables specified in `trtmodel.list` and `cenmodel.list`. Similarly, the `n.iter`, `n.burnin`, `n.thin`, and `n.chains` arguments specify the MCMC simulation parameters, including the total number of iterations, the number of burn-in iterations, the thinning rate, and the number of MCMC chains to run. The `seed` argument ensures reproducibility, and the `parallel` argument indicates whether to run the MCMC chains in parallel.
+
+The function returns a list of the updated weights by multiplying subject-specific treatment assignment weights by subject-specific censoring weights [@liuBayesianCausal].
+
+### Bayesian Non-Parametric Bootstrap Using `bayesmsm`
+
+```r
+model <- bayesmsm(ymodel = y ~ a_1+a_2,
+                  nvisit = 2,
+                  reference = c(rep(0,2)),
+                  comparator = c(rep(1,2)),
+                  family = "gaussian", # or "binomial"
+                  data = testdata,
+                  wmean = weights,
+                  nboot = 1000,
+                  optim_method = "BFGS",
+                  seed = 890123,
+                  parallel = TRUE,
+                  ncore = 6)
+```
+
+The `bayesmsm` function uses the weights estimated by `bayesweight` or `bayesweight_cen` to fit the Bayesian Marginal Structural Model and estimate the marginal treatment effects. This function performs Bayesian non-parametric bootstrap to maximize the utility function with respect to the causal effect in order to estimate the causal parameters.
+
+The function `bayesmsm` accepts several arguments including `ymodel`, which is a formula of the outcome model that can include interactions and functions of covariates. The `nvisit` argument specifies the number of visits or time points considered in the model. The `reference` and `comparator` arguments specify the baseline or reference intervention and the comparison intervention across all visits, respectively. The `family` argument specifies the outcome distribution family; "gaussian" for continuous outcomes or "binomial" for binary outcomes. The `data` argument specifies the dataset containing all variables specified previously. The `wmean` argument is a vector of treatment assignment weights. The `nboot` argument specifies the number of bootstrap iterations to perform, and the `optim_method` argument specifies the optimization method used to find the best parameters in the model. The `seed` argument ensures reproducibility, and the `parallel` and `ncore` arguments indicate whether to run with parallelization and the number of cores to use for parallel computation.
+
+The function returns a model object which contains the following:
+- For binary outcomes: the mean, standard deviation, and 95% credible interval of the Risk Difference (RD), Risk Ratio (RR), and Odds Ratio (OR). It also includes a data frame containing the bootstrap samples for the reference effect, comparator effect, RD, RR, and OR, as well as the reference and comparator levels chosen by the user.
+- For continuous outcomes: the mean, standard deviation, and 95% credible interval of the Risk Difference (RD). It also includes a data frame containing the bootstrap samples for the reference effect, comparator effect, and RD, as well as the reference and comparator levels chosen by the user.
+
+
+
+<!--
+
 # Numerical Examples and Implementation Using Simulated Dataset
 
 In our simulation study, we will be using a longitudinal dataset
@@ -452,15 +643,13 @@ table(testdata$a_1, testdata$a_2)
 -   Suppose the causal parameter of interest is the average treatment
     effect between always treated and never treated,
 
-$$
-ATE = E(Y \mid Z_1 = 1, Z_2 = 1) - E(Y \mid Z_1 = 0, Z_2 = 0)
-$$
+\( ATE = E(Y \mid Z_1 = 1, Z_2 = 1) - E(Y \mid Z_1 = 0, Z_2 = 0) \)
 
 -   Usage of functions on the simulated dataset:
 
 ```{r}
 weights <- bayesweight(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
-                                             a_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + a_1),
+                                            a_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + a_1),
                         data = testdata,
                         n.iter = 250,
                         n.burnin = 150,
@@ -485,6 +674,321 @@ model <- bayesmsm(ymodel = y ~ a_1+a_2,
                            seed = 890123,
                            ncore = 2)
 str(model)
+```
+
+-->
+
+# Numerical Examples and Implementation Using Simulated Dataset
+
+In this section, we illustrate the implementation of the `bayesmsm` package using a simulated dataset. We present an example with a non-censored dataset and a continuous outcome to demonstrate the functions `bayesweight` and `bayesmsm`. This example will provide a comprehensive understanding of how to apply the package to real-world data.
+
+## Example 1: Simulated Non-Censored Dataset with Continuous Outcome
+
+### Dataset Introduction
+
+In our simulation study, we use a longitudinal dataset designed and simulated to mimic complex real-world clinical data. This dataset consists of 1,000 patients observed over 3 visits, 2 of which patients were assigned a treatment. The end-of-study outcome \( Y \) is continuous, which is the variable of interest. The dataset includes baseline covariates \( w_1 \) and \( w_2 \), where \( w_1 \) is binary (0 for female, 1 for male) and \( w_2 \) is continuous with a mean of 12.048. Time-dependent covariates \( L_1 \) and \( L_2 \) are also included, with \( L_1 \) being binary and \( L_2 \) continuous. They reflect variables that might change with time during the study period. The binary treatment variables are denoted as \( a_1 \) and \( a_2 \) for visits 1 and 2. The treatment variables equaling 0 represents not receiving treatment at that time point, and 1 represents receiving treatment. There is no missing data in the dataset.
+
+Figure 2 shows the Directed Acyclic Graph (DAG) of this simulated dataset, with an overview:
+
+```{r figs2, fig.cap="Example DAG for non-censored simulated dataset"}
+library(DiagrammeR)
+grViz("
+    digraph causal {
+    # Nodes
+    node [shape=plaintext]
+    W [label = 'w1, w2']
+    L1 [label = 'L11, L21']
+    a1 [label = 'a1']
+    L2 [label = 'L12, L22']
+    a2 [label = 'a2']
+    Y [label = 'Y']
+    
+    # Edges
+    edge [color=black, arrowhead=vee]
+    rankdir = LR
+    W->L1
+    W->a1
+    W->L2
+    W->a2
+    W->Y
+    L1->a1
+    L1->L2
+    L1->a2
+    L1->Y
+    a1->L2
+    a1->a2
+    a1->Y
+    L2->a2
+    L2->Y
+    a2->Y
+    
+    # Graph
+    graph [overlap=true, fontsize=14]
+    }")
+```
+
+```{r}
+library(DT)
+options(scipen = 999)
+
+testdata <- read.csv("data/continuous_outcome_data.csv")
+
+# look at the data;
+datatable(testdata,
+          rownames = FALSE,
+          options = list(dom = 't')) %>%
+  formatRound(columns=c('w2', 'L2_1', 'L2_2', 'y'), digits=2)
+```
+
+### Frequency Counts by Treatment Combinations
+
+```{r}
+# frequency counts by treatment combinations;
+table(testdata$a_1, testdata$a_2)
+```
+
+-   Suppose the causal parameter of interest is the average treatment
+    effect between always treated and never treated,
+
+\( ATE = E(Y \mid Z_1 = 1, Z_2 = 1) - E(Y \mid Z_1 = 0, Z_2 = 0) \)
+
+### Usage of functions on the simulated dataset
+
+Next, we use the `bayesweight` function to estimate the inverse probability of treatment weights (IPTW). We specify the treatment model for each time point, including the relevant covariates.
+
+```r
+weights <- bayesweight(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
+                                            a_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + a_1),
+                        data = testdata,
+                        n.iter = 25000,
+                        n.burnin = 15000,
+                        n.thin = 5,
+                        n.chains = 1,
+                        seed = 890123,
+                        parallel = FALSE)
+str(weights)
+```
+
+```{r}
+weights <- bayesweight(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
+                                            a_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + a_1),
+                        data = testdata,
+                        n.iter = 250,
+                        n.burnin = 150,
+                        n.thin = 5,
+                        n.chains = 2,
+                        seed = 890123,
+                        parallel = TRUE)
+str(weights)
+```
+
+The function will automatically run MCMC with JAGS based on the specified treatment model input, saving a JAGS model file in the working directory for model customization. The function then returns a list containing the calculated weights for subject-specific treatment effects.
+
+Using the weights estimated by `bayesweight`, we now use Bayesian non-parametric bootstrap to maximize the utility function with respect to the causal effect using the `bayesmsm` function. We specify the model and other relevant parameters as follows.
+
+```r
+model <- bayesmsm(ymodel = y ~ a_1+a_2,
+                  nvisit = 2,
+                  reference = c(rep(0,2)),
+                  comparator = c(rep(1,2)),
+                  family = "gaussian",
+                  data = testdata,
+                  wmean = weights,
+                  nboot = 1000,
+                  optim_method = "BFGS",
+                  parallel = TRUE,
+                  seed = 890123,
+                  ncore = 2)
+str(model)
+```
+
+```{r}
+model <- bayesmsm(ymodel = y ~ a_1+a_2,
+                  nvisit = 2,
+                  reference = c(rep(0,2)),
+                  comparator = c(rep(1,2)),
+                  family = "gaussian",
+                  data = testdata,
+                  wmean = weights,
+                  nboot = 1000,
+                  optim_method = "BFGS",
+                  parallel = TRUE,
+                  seed = 890123,
+                  ncore = 2)
+str(model)
+```
+
+### Output
+
+The `bayesmsm` function returns a model object containing the following:
+
+For continuous outcomes: the mean, standard deviation, and 95% credible interval of the Risk Difference (RD). It also includes a data frame containing the bootstrap samples for the reference effect, comparator effect, and RD, as well as the reference and comparator levels chosen by the user.
+We can extract and visualize the results as follows:
+
+```{r}
+# Extract results
+head(model$bootdata)
+```
+
+This data frame in the model output allows users to plot and summarize the Bayesian posterior bootstrap results.
+
+We can also use other functions in the `bayesmsm` package, such as `summary.bayesmsm`, `plot_ATE`, `plot_APO`, and `plot_est_box`, to automatically summarize and visualize the results. More details can be found in the appendix. Below (Figure 3 and 4) are examples of using `plot_ATE` and `plot_est_box` to visualize the above results.
+
+```{r figs3, fig.cap="Visualization of results using `plot_ATE`"}
+# Visualization
+plot_ATE(model)
+```
+
+```{r figs4, fig.cap="Visualization of results using `plot_est_box`"}
+# Visualization
+plot_est_box(model)
+```
+
+## Example 2: Simulated Right-Censored Dataset with Binary Outcome
+
+### Dataset Introduction
+
+In this simulation study, we use a simulated longitudinal dataset to mimic complex real-world clinical data with right-censoring. This dataset consists of 500 patients observed over 3 visits. The binary outcome variable represents the end-of-study status of the patients. The dataset includes baseline covariates \( L11 \) and \( L21 \), with \( L11 \) being binary and \( L21 \) continuous. Time-dependent covariates \( L12 \) and \( L22 \) are observed at the second visit, and \( L13 \) and \( L23 \) at the third visit. The treatment variables are represented as \( A1 \), \( A2 \), and \( A3 \) for the three visits. Right-censoring indicators are represented as \( C1 \), \( C2 \), and \( C3 \). For example, for observations with \( C1 = 1 \), all records at or after visit 1 were censored.
+
+The following is a peak at this dataset:
+
+```{r}
+# Simulating causal data with censoring
+sim.rc <- function(samplesize = 500)
+{
+  set.seed(123)
+  expit <- function(x){exp(x)/(1+exp(x))}
+  # visit 1;
+  L11 <- rbinom(n=samplesize, size=1, prob=0.5)
+  L21 <- rnorm(n=samplesize, mean=0, sd=1)
+
+  C1prob <- expit(-2-0.1*L11-0.1*L21) #right-censoring also known as lost to followup require non missing baseline. If there is missing baseline, ask user to impute missing baseline variables or remove missing observations;
+  C1 <- rbinom(n=samplesize, size=1, prob=C1prob)
+
+  A1prob <- expit(0.5*L11-0.2*L21)
+  A1 <- rbinom(n=samplesize, size=1, prob=A1prob)
+
+  # visit 2;
+  C2prob <- expit(-2-0.1*L11-0.1*L21 - 0.1*A1)
+  C2 <- rbinom(n=samplesize, size=1, prob=C2prob)
+
+  L12prob <- expit(0.5*A1+0.5*L11-0.2*L21)
+  L12 <- rbinom(n=samplesize, size=1, prob=L12prob)
+  meanL22 <- 0.5*L21-0.5*A1-0.2*L11
+  L22 <- rnorm(n=samplesize, mean=meanL22, sd=1)
+
+  A2prob <- expit(0.5*L12-0.2*L22+0.2*A1)
+  A2 <- rbinom(n = samplesize, size = 1, prob = A2prob)
+
+  # visit 3;
+  C3prob <- expit(-2-0.1*L12-0.1*L22 - 0.1*A2)
+  C3 <- rbinom(n=samplesize, size=1, prob=C3prob)
+
+  L13prob <- expit(0.5*A2+0.5*L12-0.2*L22)
+  L13 <- rbinom(n = samplesize, size = 1, prob = L13prob)
+  meanL23 <- 0.5*L22-0.5*A2-0.2*L12
+  L23 <- rnorm(n=samplesize, mean=meanL23, sd=1)
+
+  A3prob <- expit(0.5*L13-0.2*L23+0.2*A2)
+  A3 <- rbinom(n = samplesize, size = 1, prob = A3prob)
+
+  # end-of-study outcome;
+  Yprob <- expit(0.3*A3+0.1*A2-0.1*A1+0.1*L13-0.2*L23)
+  Y <- rbinom(n = samplesize, size = 1, prob = Yprob)
+  dat <- cbind(L11, L21, A1, L12, L22, A2, L13, L23, A3, C1, C2, C3, Y)
+  dat <- data.frame(dat)
+  return(dat)
+}
+simdat <- sim.rc(samplesize = 500)
+
+library(tidyverse)
+simdat_cen <- simdat %>%
+  mutate(A1 = ifelse(C1==1, NA, A1),
+         C2 = ifelse(C1==1, NA, C2),
+         L12 = ifelse(C1==1, NA, L12),
+         L22 = ifelse(C1==1, NA, L22),
+         A2 = ifelse(C1==1, NA, A2),
+         L13 = ifelse(C1==1, NA, L13),
+         L23 = ifelse(C1==1, NA, L23),
+         A3 = ifelse(C1==1, NA, A3),
+         C3 = ifelse(C1==1, NA, C3),
+         Y = ifelse(C1==1, NA, Y)) %>%
+  mutate(L12 = ifelse(C2==1, NA, L12),
+         L22 = ifelse(C2==1, NA, L22),
+         A2 = ifelse(C2==1, NA, A2),
+         L13 = ifelse(C2==1, NA, L13),
+         L23 = ifelse(C2==1, NA, L23),
+         A3 = ifelse(C2==1, NA, A3),
+         C3 = ifelse(C2==1, NA, C3),
+         Y = ifelse(C2==1, NA, Y)) %>%
+  mutate(L13 = ifelse(C3==1, NA, L13),
+         L23 = ifelse(C3==1, NA, L23),
+         A3 = ifelse(C3==1, NA, A3),
+         Y = ifelse(C3==1, NA, Y))
+
+head(simdat_cen)
+```
+
+
+### Usage of Functions on the Simulated Dataset
+
+Next, we use the `bayesweight_cen` function to estimate the inverse probability of treatment and censoring weights (IPCW). We specify the treatment and censoring models for each time point, including the relevant covariates.
+
+```r
+weights <- bayesweight_cen(trtmodel.list = list(A1 ~ L11 + L21,
+                                                A2 ~ L11 + L21 + L12 + L22 + A1,
+                                                A3 ~ L11 + L21 + L12 + L22 + A1 + L13 + L23 + A2),
+                           cenmodel.list = list(C1 ~ L11 + L21,
+                                                C2 ~ L11 + L21 + A1,
+                                                C3 ~ L11 + L21 + A1 + L12 + L22 + A2),
+                           data = simdat_cen,
+                           n.iter = 250,
+                           n.burnin = 50,
+                           n.thin = 5)
+str(weights)
+```
+
+```{r}
+
+```
+
+
+Similarly, the function will automatically run MCMC with JAGS based on the specified treatment and censoring model inputs, saving a JAGS model file in the working directory for model customization. The function returns a list containing the updated weights for subject-specific treatment and censoring effects.
+
+Using the weights estimated by `bayesweight_cen`, we now fit the Bayesian Marginal Structural Model and estimate the marginal treatment effects using the `bayesmsm` function as before. We specify the outcome model and other relevant parameters.
+
+```r
+model <- bayesmsm(ymodel = Y ~ A1+A2+A3,
+                  nvisit = 3,
+                  reference = c(rep(0, 3)),
+                  comparator = c(rep(1, 3)),
+                  family = "binomial",
+                  data = simdat_cen,
+                  wmean = weights,
+                  nboot = 1000,
+                  optim_method = "BFGS",
+                  parallel = TRUE,
+                  seed = 890123,
+                  ncore = 2)
+str(model)
+```
+
+```{r}
+
+```
+
+### Output
+
+The `bayesmsm` function returns a model object containing the following: the mean, standard deviation, and 95% credible interval of the Risk Difference (RD), Risk Ratio (RR), and Odds Ratio (OR). It also includes a data frame containing the bootstrap samples for the reference effect, comparator effect, RD, RR, and OR, as well as the reference and comparator levels chosen by the user.
+
+We can also use other functions in the `bayesmsm` package, such as `summary.bayesmsm`, `plot_ATE`, `plot_APO`, and `plot_est_box`, to automatically summarize and visualize the results. More details can be found in the appendix. Below (Figure 5 and 6) are examples of using summary.bayesmsm and plot_APO to summarize the above results.
+
+```{r}
+
+```
+
+```{r}
+
 ```
 
 # Discussion

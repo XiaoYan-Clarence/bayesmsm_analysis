@@ -13,30 +13,112 @@ if (!require(tidyverse)){
 }
 
 
-## ----penguins-alison, out.width = "100%", out.height = "30%", fig.cap = "Artwork by \\@allison\\_horst", fig.alt="A picture of three different penguins with their species: Chinstrap, Gentoo, and Adelie. "----
-knitr::include_graphics("figures/penguins.png")
+## ----figs, fig.cap="Example DAG for 2 visits"---------------------------------
+library(DiagrammeR)
+grViz("
+    digraph causal {
+    # Nodes
+    node [shape=ellipse, style=filled, color=lightgray]
+    Xij_minus1 [label = 'X_{ij-1}']
+    Zij_minus1 [label = 'Z_{ij-1}']
+    Xij [label = 'X_{ij}']
+    Zij [label = 'Z_{ij}']
+    Yi [label = 'Y_{i}']
+
+    # Edges
+    edge [color=black, arrowhead=vee]
+    rankdir = LR
+    Xij_minus1 -> {Zij_minus1 Xij Zij Yi}
+    Zij_minus1 -> {Zij Xij Yi}
+    Xij -> {Zij Yi}
+    Zij -> Yi
+
+    # Graph
+    graph [overlap=false, fontsize=14, rankdir=LR]
+    }")
 
 
-## ----penguins-tab-interactive, eval = knitr::is_html_output(), layout = "l-body-outset"----
-#> #knitr::kable(head(penguins), format = "html", caption = "A basic table")
+
+## -----------------------------------------------------------------------------
+library(DiagrammeR)
+grViz("
+    digraph causal {
+    # Nodes
+    node [shape=plaintext]
+    W [label = 'w1, w2']
+    L1 [label = 'L11, L21']
+    Z1 [label = 'Z1']
+    L2 [label = 'L12, L22']
+    Z2 [label = 'Z2']
+    Y [label = 'Y']
+    
+    # Edges
+    edge [color=black, arrowhead=vee]
+    rankdir = LR
+    W->L1
+    W->Z1
+    W->L2
+    W->Z2
+    W->Y
+    L1->Z1
+    L1->L2
+    L1->Z2
+    L1->Y
+    Z1->L2
+    Z1->Z2
+    Z1->Y
+    L2->Z2
+    L2->Y
+    Z2->Y
+    
+    # Graph
+    graph [overlap=true, fontsize=14]
+    }")
 
 
-## ----penguins-tab-static, eval = knitr::is_latex_output()---------------------
-# knitr::kable(head(penguins), format = "latex", caption = "A basic table") %>% 
-#   kableExtra::kable_styling(font_size = 7)
+## -----------------------------------------------------------------------------
+library(DT)
+options(scipen = 999)
+
+testdata <- read.csv("data/continuous_outcome_data.csv")
+
+# look at the data;
+datatable(testdata,
+          rownames = FALSE,
+          options = list(dom = 't')) %>%
+  formatRound(columns=c('w2', 'L2_1', 'L2_2', 'y'), digits=2)
 
 
-## ----penguins-plotly, echo = TRUE, fig.height = 5, fig.cap="A basic interactive plot made with the plotly package on palmer penguin data. Three species of penguins are plotted with bill depth on the x-axis and bill length on the y-axis. When hovering on a point, a tooltip will show the exact value of the bill depth and length for that point, along with the species name.", include=knitr::is_html_output(), eval=knitr::is_html_output(), fig.alt = "A scatterplot of bill length against bill depth, both measured in millimetre. The three species are shown in different colours and loosely forms three clusters. Adelie has small bill length and large bill depth, Gentoo has small bill depth but large bill length, and Chinstrap has relatively large bill depth and bill length."----
-#> # p <- penguins %>%
-#> #   ggplot(aes(x = bill_depth_mm, y = bill_length_mm,
-#> #              color = species)) +
-#> #   geom_point()
-#> # ggplotly(p)
+## -----------------------------------------------------------------------------
+# frequency counts by treatment combinations;
+table(testdata$a_1, testdata$a_2)
 
 
-## ----penguins-ggplot, echo = TRUE, fig.height = 5, fig.cap="A basic non-interactive plot made with the ggplot2 package on palmer penguin data. Three species of penguins are plotted with bill depth on the x-axis and bill length on the y-axis. Visit the online article to access the interactive version made with the plotly package.", include=knitr::is_latex_output(), eval=knitr::is_latex_output()----
-# penguins %>% 
-#   ggplot(aes(x = bill_depth_mm, y = bill_length_mm, 
-#              color = species)) + 
-#   geom_point()
+## -----------------------------------------------------------------------------
+weights <- bayesweight(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
+                                             a_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + a_1),
+                        data = testdata,
+                        n.iter = 250,
+                        n.burnin = 150,
+                        n.thin = 5,
+                        n.chains = 2,
+                        seed = 890123,
+                        parallel = TRUE)
+str(weights)
+
+
+## -----------------------------------------------------------------------------
+model <- bayesmsm(ymodel = y ~ a_1+a_2,
+                           nvisit = 2,
+                           reference = c(rep(0,2)),
+                           comparator = c(rep(1,2)),
+                           family = "gaussian",
+                           data = testdata,
+                           wmean = weights,
+                           nboot = 1000,
+                           optim_method = "BFGS",
+                           parallel = TRUE,
+                           seed = 890123,
+                           ncore = 2)
+str(model)
 

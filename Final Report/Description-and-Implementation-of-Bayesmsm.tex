@@ -12,54 +12,447 @@ Observational studies offer a viable, efficient, and low-cost design to readily 
 
 \section{Introduction}\label{introduction}
 
-Interactive data graphics provides plots that allow users to interact them. One of the most basic types of interaction is through tooltips, where users are provided additional information about elements in the plot by moving the cursor over the plot.
+Interactive data graphics provides plots that allow users to interact
+them. One of the most basic types of interaction is through tooltips,
+where users are provided additional information about elements in the
+plot by moving the cursor over the plot.
 
-This paper will first review some R packages on interactive graphics and their tooltip implementations. A new package \CRANpkg{ToOoOlTiPs} that provides customized tooltips for plot, is introduced. Some example plots will then be given to showcase how these tooltips help users to better read the graphics.
+This paper will first review some R packages on interactive graphics and
+their tooltip implementations. A new package \CRANpkg{ToOoOlTiPs} that
+provides customized tooltips for plot, is introduced. Some example plots
+will then be given to showcase how these tooltips help users to better
+read the graphics.
 
 \section{Longitudinal causal framework and Bayesian Marginal Structural Models (BMSMs)}\label{longitudinal-causal-framework-and-bayesian-marginal-structural-models-bmsms}
 
-\subsubsection{2.1 Notation}\label{notation}
+\subsection{Notation}\label{notation}
 
-In our analytical framework, let \(n\) be the total number of study subjects enrolled indexed by \(i, i = 1, \ldots, n\) and \(J\) the number of visits indexed by \(j, j = 1, \ldots, J\) (Liu 2021). \(Y_i\), \(X_{ij}\), and \(Z_{ij}\) are the random variables representing an end-of-study response, covariates, and the treatment for individual \(i\) at visit \(j\). We also define the treatment history up to visit \(j\) as \(\bar{Z}_{ij} = \{ Z_{i1}, \ldots, Z_{ij} \}\) with covariates \(\bar{X}_{ij} = \{ X_{i1}, \ldots, X_{ij} \}\). Further, we assume at each visit \(j\), \(X_{ij}\) is measured first and treatment assignment \(Z_{ij}\) is decided after (Liu 2021).
+In this section, we introduce the notation for the Bayesian Marginal Structural Models (BMSMs). Let \(n\) be the total number of subjects enrolled in the study, indexed by \(i = 1, \ldots, n\). Each subject is observed over \(J\) visits, indexed by \(j = 1, \ldots, J\). For each subject \(i\) at visit \(j\), let \(Y_{i}\) denote the final outcome, \(X_{ij}\) the covariates, and \(Z_{ij}\) the treatment. The full histories of these variables up to visit \(j\) for subject \(i\) are represented as \(Y_{i}\), \(\bar{X}_{ij} = \{X_{i1}, \ldots, X_{ij}\}\), and \(\bar{Z}_{ij} = \{Z_{i1}, \ldots, Z_{ij}\}\), respectively. At each visit \(j\), \(X_{ij}\) is measured first, and \(Z_{ij}\) is decided and recorded afterward (Liu 2021).
 
-\section{Background}\label{background}
+In the case of right-censoring, we introduce the censoring indicator \(C_{ij}\), where \(C_{ij} = 1\) if the subject \(i\) is censored at visit \(j\) and \(C_{ij} = 0\) if not censored. The full history of the censoring indicators up to visit \(j\) is denoted as \(\bar{C}_{ij} = \{C_{i1}, \ldots, C_{ij}\}\). The observed data for each subject \(i\) at visit \(j\) is thus represented by \(\bar{V}_{ij} = Y_{i}, \bar{X}_{ij}, \bar{Z}_{ij-1}, \bar{C}_{ij}\}\).
 
-Some packages on interactive graphics include \CRANpkg{plotly} (\textbf{plotly?}) that interfaces with Javascript for web-based interactive graphics, \CRANpkg{crosstalk} (\textbf{crosstalk?}) that specializes cross-linking elements across individual graphics. The recent R Journal paper \CRANpkg{tsibbletalk} (\textbf{RJ-2021-050?}) provides a good example of including interactive graphics into an article for the journal. It has both a set of linked plots, and also an animated gif example, illustrating linking between time series plots and feature summaries.
+\subsection{Causal structure}\label{causal-structure}
 
-\section{\texorpdfstring{Customizing tooltip design with \pkg{ToOoOlTiPs}}{Customizing tooltip design with }}\label{customizing-tooltip-design-with}
+Under the observational setting, the treatment decision at each visit \(j\) is made based on covariates \(X_{ij}\) and the past treatment assignment history \(\bar{Z}_{ij-1}\). We assume that the final outcome \(Y_{i}\) is influenced by the entire history of covariates and treatment assignments.
 
-\pkg{ToOoOlTiPs} is a packages for customizing tooltips in interactive graphics, it features these possibilities.
+The hypothesized causal structure for two consecutive visits and a follow-up response is represented in a directed acyclic graph (DAG) in the next section. This structure assumes that there is no competition for treatment resources between subjects at each visit, meaning that the treatment assignment for one subject does not affect the outcome of another subject. Furthermore, we assume that there are no unmeasured confounders with respect to the outcome and the treatment at any given visit. This assumption is often referred to as the sequential ignorability of treatment assignment, which implies that given the observed history up to visit \(j\), the treatment assignment \(Z_{ij}\) is independent of the potential outcomes (Liu et al. 2020).
 
-\section{A gallery of tooltips examples}\label{a-gallery-of-tooltips-examples}
+\subsection{Directed Acyclic Graph (DAG)}\label{directed-acyclic-graph-dag}
 
-The \CRANpkg{palmerpenguins} data (\textbf{palmerpenguins?}) features three penguin species which has a lovely illustration by Alison Horst in Figure \ref{fig:penguins-alison}.
+\label{fig:figs}Example DAG for 2 visits
 
-\begin{figure}
-\includegraphics[width=1\linewidth,height=0.3\textheight]{figures/penguins} \caption{Artwork by \@allison\_horst}\label{fig:penguins-alison}
-\end{figure}
+Figure 1 shows the causal structure for two consecutive visits with a final outcome , which is
+the Directed Acyclic Graph (DAG) between treatment assignment,
+covariates and the final outcome. A causal graph is a directed acyclic
+graph in which the vertices (nodes) of the graph represent variables and
+the directed edges (arrows) represent direct causal effects
+(Robins et al. 2000). Here, \(X_{ij-1}\) is the baseline
+covariate. The covariates \(X_{ij-1}\), \(X_{ij}\) and time-varying covariate
+\(Z_{ij-1}\) potentially influence treatment assignments \(Z_{ij}\), and
+ultimately, the outcome \(Y_{i}\). Each treatment decision \(Z_j\) at visit \(j\)
+is determined at the end of that visit, based on all previous
+information. This DAG also assumes that there is no unmeasured
+confounding.
 
-Table \ref{tab:penguins-tab-static} prints at the first few rows of the \texttt{penguins} data:
+\subsection{Data-generating mechanism causal framework}\label{data-generating-mechanism-causal-framework}
 
-Figure \ref{fig:penguins-ggplot} shows an plot of the penguins data, made using the \CRANpkg{ggplot2} package.
+We construct a data-generating mechanism for a
+non-repeatedly measured outcome \(Y_{i}\). Under the data-generating
+mechanism, causal inference with observational data can simply be viewed
+as a prediction problem (Liu et al. 2020). This framework allows us to conceptualize the problem as drawing inference from an ideal population, where treatment assignment is unconfounded (similar to a randomized setting), and comparing it to the data observed in a confounded observational setting (Dawid, Didelez, et al. 2010; Røysland et al. 2011; Arjas 2012; Saarela et al. 2015; Hernán and Robins 2016). The experimental data generating mechanism is
+indexed by \(\mathcal{E}\), which generates samples from the ideal
+population where treatment assignment at each visit is independent of
+the covariates given past treatment assignments, i.e.,
+\(Z_{ij} \perp X_{ij} \mid Z_{ij-1}\); the observational data generating
+mechanism is indexed by \(\mathcal{O}\), which generates samples from the
+observed population where independence does not hold and treatment
+assignment \(Z_{ij}\) at visit \(j\) depends on \(\{X_{ij}, Z_{ij-1}\}\) (Liu et al. 2020).
+
+Under such data-generating mechanism, we have two important assumptions.
+The first assumption has already been stated above, which is
+\(Z_{ij} \perp X_{ij} \mid Z_{ij-1}\). The second positivity assumption
+states that at each visit, any treatment sequence that is compatible
+with the complete treatment history has a non-zero probability of
+occuring, i.e.~\(0 < P(Z_{ij} | X_{ij}, Z_{ij-1}) < 1\) for
+\(j = 1, \ldots, J\).
+
+Under \(\mathcal{E}\), we can specify the marginal outcome model as
+(Liu 2021):
+
+\[
+   g_y( E_{\mathcal{E}}[{y}_{i} \mid \bar{z}_{iJ}]) = {\Theta} \
+   \sum_{j=1}^J z_{ij}, \quad j=1,\ldots,J.
+\]
+
+We draw inference from an ideal population (\(\mathcal{E}\)) but with
+observed data subject to confounding (\(\mathcal{O}\)). Here, \({\Theta}\)
+is known as the marginal treatment effect. For example, if we have a
+binary time-varying treatment, \({\Theta}\) is interpreted as the expected change in the final outcome \(Y_i\) relative to a one-unit increase in the cumulative treatment exposure prior to visit \(j\).
+
+\subsection{Bayesian Framework}\label{bayesian-framework}
+
+Let \(Y\) represent the outcome variable, \(A\) the matrix of treatment
+variables, and \(W\) the vector of patient weights. The number of
+observations is \(n\), and \(\theta\) is the vector of causal parameters on
+the mean, with \(\sigma\) representing the standard deviation. The
+weighted log-likelihood of the normal distribution is given by
+\cite{shaliziLecture}:
+
+\[
+\text{weighted log}\mathcal{L}_{\text{normal}}(\theta, \sigma^2) = -\frac{n}{2} \log(\sigma^2) - \frac{1}{2\sigma^2} \sum_{i=1}^{n} W_i (Y_i - A_i \theta)^2
+\]
+
+where \(A_i\) is the \(i\)-th row of matrix \(A\) and \(W_i\) denotes the
+treatment weight for the \(i\)-th patient.
+
+Using Bayesian decision theory and importance sampling technique, we
+maximize an expected utility function (a function involving only
+\(\theta\)), \(\textbf{u}_{\mathcal{E}}(\Theta, \bar{v}_{i}^*)\), via
+posterior predictive inference \cite{liuBayesianCausal},
+
+\[
+\hat{\Theta} 
+ = \text{argmax}_{\theta} \int_{\bar{v}_{i}^*}  u_{\mathcal{E}}(\Theta, \bar{v}_{i}^*)P_{\mathcal{E}}(\bar{v}_{i}^* \mid \textbf{V}_n) \ d\bar{v}_{i}^* 
+= \text{argmax}_{\theta}\int_{\bar{v}_{i}^*}  u_{\mathcal{E}}(\Theta, \bar{v}_{i}^*) \frac{P_{\mathcal{E}}(\bar{v}_{i}^* \mid \textbf{V}_n) }{P_{\mathcal{O}}(\bar{v}_{i}^* \mid \textbf{V}_n)}P_{\mathcal{O}}(\bar{v}_{i}^* \mid \textbf{V}_n) \ d\bar{v}_{i}^* 
+\]
+
+where
+\(u(\Theta, \bar{v}_{i}^*)= \log P_{\mathcal{E}}( Y_{i}^* \mid \bar{z}_{iJ}^*; \Theta)\)
+is the utility function; and
+\(w_{i}^* = \frac{P_{\mathcal{E}}(\bar{v}_{i}^* \mid \textbf{v}_n)}{P_{\mathcal{O}}(\bar{v}_{i}^* \mid \textbf{v}_n)}\)
+can be expanded to treatment assignment weight \cite{liuBayesianCausal}:
+
+\[
+w_{i j}^{*}=\frac{E_{\alpha}\left[\prod_{l=1}^{j} P_{\mathcal{E}}\left(Z_{i l-1}^{*} \mid \bar{Z}_{i l-2}^{*}, \alpha_{l-1}\right) \mid \bar{z}_{1}, \ldots, \bar{z}_{n}\right]}{E_{\beta}\left[\prod_{l=1}^{j} P_{\mathcal{O}}\left(Z_{i l-1}^{*} \mid \bar{Z}_{i l-2}^{*}, \bar{X}_{i l-1}^{*}, \beta_{l-1}\right) \mid \mathbf{v}_{n}\right]}, \text { for } j=1, \ldots, k \text {. }
+\]
+
+Since the Bayesian decision argument offers a point estimate for the
+marginal treatment effect where the uncertainty is not yet addressed, we
+need to use the weighted likelihood bootstrap (WLB) method
+\cite{liuBayesianCausal}. This WLB method allows us to obtain a
+distribution of \(\Theta\) by drawing \(\pi\) from a uniform Dirichlet
+distribution of and maximizing the \(\pi\) weighted expected utility sum
+\(\sum_{i=1}^{n} \sum_{j=1}^{k+1} \pi_{i}^{(b)} w_{i j} \log P_{\mathcal{E}}\left(y_{i j} \mid \bar{z}_{i j-1} ; \Theta\right)\)
+with respect to \(\Theta\) \cite{liuBayesianCausal}.
+
+In applying the above methods to actual coding, we first code the
+weighted log likelihood of normal distribution in R. In order for the
+automation of sampling from the uniform Dirichlet distribution and then
+maximizing the likelihood, we initialize three mean parameters to 0.1
+and the variance parameter to 4. Then, in each bootstrap, we draw 1,000
+samples of alpha, the size of the dataset, from Dirichlet distribution
+with parameter alpha equal to 1. The weighted mean is set to 1 for each
+observation. Finally, we maximize the weighted log likelihood function.
+
+The Average Causal Effect (ACE), or the Average Treatment Effect (ATE),
+is defined as \cite{dingFirstCourse}:
+
+\[
+  \tau = n^{-1} \sum_{i=1}^{n} \{Y_i(1) - Y_i(0)\} \\
+  = n^{-1} \sum_{i=1}^{n} Y_i(1) - n^{-1} \sum_{i=1}^{n} Y_i(0).
+\]
+
+In this study, the causal parameter of interest is the ATE between
+always treated vs never treated \cite{liu2023section3}. After getting
+the Average Treatment Effect (ATE) from Bayesian bootstrap, we will also
+compare our results to the frequentist approach. The frequentist
+Marginal Structural Models (MSMs) calculates visit specific propensity
+scores, and fits the weighted linear regression \cite{liu2023section3}.
+
+\section{Description of bayesmsm}\label{description-of-bayesmsm}
+
+The \texttt{bayesmsm} package is developed to implement Bayesian marginal
+structural models (BMSMs) for longitudinal data analysis. It contains
+three core functions: \texttt{bayesweight}, \texttt{bayesweight\_cen}, and \texttt{bayesmsm}.
+\texttt{bayesweight} estimates treatment weights using posterior samples of
+\(\alpha\) and \(\beta\) via fitting a series of logistic regressions in a
+Bayesian framework, whereas \texttt{bayesweight\_cen} extends the function
+\texttt{bayesweight} to handle right-censored data. \texttt{bayesmsm} then uses the
+estimated treatment weights to perform Bayesian non-parametric bootstrap
+so as to estimate causal effect. In this section, we describe these
+functions and their usage in detail.
+
+\subsection{\texorpdfstring{Bayesian treatment effect weight estimation using \texttt{bayesweight}}{Bayesian treatment effect weight estimation using bayesweight}}\label{bayesian-treatment-effect-weight-estimation-using-bayesweight}
+
+\begin{itemize}
+\tightlist
+\item
+  The following code calls the function \texttt{bayesweight} to run JAGS and
+  calculate the weights.
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Non-parallel computing requires that \texttt{n.chains\ =\ 1}. Parallel
+    MCMC requires at least 2 chains because computing is running on
+    1 core per chain, and we recommend using at most 2 chains less
+    than the number of available cores on your computer.
+  \item
+    Running this function automatically saves a JAGS model file in
+    the working directory, which the user can check to review the
+    model specifications.
+  \end{itemize}
+\item
+  Parameters Description:
+
+  \begin{itemize}
+  \tightlist
+  \item
+    \texttt{trtmodel.list}: A list of formulas corresponding to each time
+    point with the time-specific treatment variable on the left hand
+    side and pre-treatment covariates to be balanced on the right
+    hand side. Interactions and functions of covariates are allowed.
+  \item
+    \texttt{data}: The dataset containing all the variables specified in
+    trtmodel.list.
+  \item
+    \texttt{n.iter}: Total number of iterations for each chain (including
+    burn-in).
+  \item
+    \texttt{n.burnin}: Number of iterations to discard at the beginning of
+    the simulation (burn-in).
+  \item
+    \texttt{n.thin}: Thinning rate for the MCMC sampler.
+  \item
+    \texttt{n.chains}: Number of MCMC chains to run. For non-parallel
+    execution, this should be set to 1. For parallel execution, it
+    requires at least 2 chains.
+  \item
+    \texttt{seed}: Seed to ensure reproducibility.
+  \item
+    \texttt{parallel}: Logical flag indicating whether to run the MCMC
+    chains in parallel. Default is TRUE.
+  \end{itemize}
+\end{itemize}
+
+\texttt{weights\ \textless{}-\ bayesweight(trtmodel.list\ =\ list(a\_1\ \textasciitilde{}\ w1\ +\ w2\ +\ L1\_1\ +\ L2\_1,}
+
+\texttt{a\_2\ \textasciitilde{}\ w1\ +\ w2\ +\ L1\_1\ +\ L2\_1\ +\ L1\_2\ +\ L2\_2\ +\ a\_1),}
+
+\texttt{data\ =\ testdata,}
+
+\texttt{n.iter\ =\ 250,}
+
+\texttt{n.burnin\ =\ 150,}
+
+\texttt{n.thin\ =\ 5,}
+
+\texttt{n.chains\ =\ 2,}
+
+\texttt{seed\ =\ 890123,}
+
+\texttt{parallel\ =\ TRUE)}
+
+\begin{itemize}
+\tightlist
+\item
+  It returns a list containing:
+
+  \begin{itemize}
+  \tightlist
+  \item
+    \texttt{weights}: The calculated weights for subject-specific treatment
+    effects.
+  \end{itemize}
+\end{itemize}
+
+\subsection{\texorpdfstring{Bayesian non-parametric bootstrap to maximize the utility function with respect to the causal effect using \texttt{bayesmsm}}{Bayesian non-parametric bootstrap to maximize the utility function with respect to the causal effect using bayesmsm}}\label{bayesian-non-parametric-bootstrap-to-maximize-the-utility-function-with-respect-to-the-causal-effect-using-bayesmsm}
+
+The function \texttt{bayesmsm} estimates causal effect of time-varying
+treatments. It uses subject-specific treatment assignmennt weights
+\emph{weights} calculated using \texttt{bayesweight} or \texttt{bayesweight\_cen}, and
+performs Bayesian non-parametric bootstrap to estimate the causal
+parameters.
+
+\begin{itemize}
+\tightlist
+\item
+  Parameters Description:
+
+  \begin{itemize}
+  \tightlist
+  \item
+    \texttt{ymodel}: A formula representing the outcome model, which can
+    include interactions and functions of covariates.
+  \item
+    \texttt{nvisit}: Specifies the number of visits or time points
+    considered in the model.
+  \item
+    \texttt{reference}: The baseline or reference intervention across all
+    visits, typically represented by a vector of zeros indicating no
+    treatment (default is a vector of all zeros).
+  \item
+    \texttt{comparator}: The comparison intervention across all visits,
+    typically represented by a vector of ones indicating full
+    treatment (default is a vector of all ones).
+  \item
+    \texttt{family}: Specifies the outcome distribution family; use
+    ``gaussian'' for continuous outcomes or ``binomial'' for binary
+    outcomes (default is ``gaussian'').
+  \item
+    \texttt{data}: The dataset containing all variables required for the
+    model.
+  \item
+    \texttt{wmean}: A vector of treatment assignment weights. Default is a
+    vector of ones, implying equal weighting.
+  \item
+    \texttt{nboot}: The number of bootstrap iterations to perform for
+    estimating the uncertainty around the causal estimates.
+  \item
+    \texttt{optim\_method}: The optimization method used to find the best
+    parameters in the model (default is `BFGS').
+  \item
+    \texttt{seed}: A seed value to ensure reproducibility of results.
+  \item
+    \texttt{parallel}: A logical flag indicating whether to perform
+    computations in parallel (default is TRUE).
+  \item
+    \texttt{ncore}: The number of cores to use for parallel computation
+    (default is 4).
+  \end{itemize}
+\end{itemize}
+
+\texttt{model\ \textless{}-\ bayesmsm(ymodel\ =\ y\ \textasciitilde{}\ a\_1+a\_2,}
+\texttt{nvisit\ =\ 2,}
+\texttt{reference\ =\ c(rep(0,2)),}
+\texttt{comparator\ =\ c(rep(1,2)),}
+\texttt{family\ =\ "gaussian",}
+\texttt{data\ =\ testdata,}
+\texttt{wmean\ =\ weights,}
+\texttt{nboot\ =\ 1000,}
+\texttt{optim\_method\ =\ "BFGS",}
+\texttt{parallel\ =\ TRUE,}
+\texttt{seed\ =\ 890123,}
+\texttt{ncore\ =\ 2)}
+
+\begin{itemize}
+\tightlist
+\item
+  It returns a model object which contains:
+
+  \begin{itemize}
+  \tightlist
+  \item
+    \texttt{mean}, \texttt{sd}, \texttt{quantile}: the mean, standard deviation and 95\%
+    credible interval of the estimated causal effect (ATE). From the
+    above results, the mean of ATE is approximately -3.161, which
+    indicates that the expected outcome for always treated patients
+    is, on average, 3.161 units less than that for never treated
+    patients.
+  \item
+    \texttt{bootdata}: a data frame containing the bootstrap samples for
+    the reference effect, comparator effect, and average treatment
+    effect (ATE).
+  \item
+    \texttt{reference}, \texttt{comparator}: the reference level and comparator
+    level the user chooses to compare. Here the reference level is
+    never treated (0,0), and the comparator level is always treated
+    (1,1).
+  \end{itemize}
+\end{itemize}
+
+\section{Numerical Examples and Implementation Using Simulated Dataset}\label{numerical-examples-and-implementation-using-simulated-dataset}
+
+In our simulation study, we will be using a longitudinal dataset
+designed and simulated to mimic the complex real-world clinical data
+\cite{liu2023section3}. In this dataset, there are 1,000 patients in
+total with 3 visits, 2 of which patients were assigned a treatment. The
+end-of-study outcome \(Y\) is continuous and what we are interested in.
+\(w_1\) and \(w_2\) are two baseline covariates mimicking sex and age, where
+\(w_1\) is a binary variable with values 0 (female) and 1 (male), and
+\(w_2\) is a continuous variable with mean 12.048. \(L_1\) and \(L_2\) emulate
+time-dependent covariates, one binary and one continuous, reflecting
+variables that might change with time during the study period. The
+binary treatment variable, represented as \(a_1\) and \(a_2\) for visit 1
+and 2 in the dataset, corresponds to the treatments \(Z_1\) and \(Z_2\) as
+defined in our earlier discussion on Directed Acyclic Graphs (DAGs).
+Finally, there is no missing data in the dataset. \cite{liu2023section3}
+Table 1 shows an overview of this simulated dataset.
+
+\begin{itemize}
+\tightlist
+\item
+  The simulated DAG
+\end{itemize}
+
+\begin{itemize}
+\tightlist
+\item
+  Frequency Counts by Treatment Combinations
+\end{itemize}
 
 \begin{verbatim}
-# penguins %>% 
-#   ggplot(aes(x = bill_depth_mm, y = bill_length_mm, 
-#              color = species)) + 
-#   geom_point()
+#>    
+#>       0   1
+#>   0 520 201
+#>   1 111 168
 \end{verbatim}
 
-\section{Summary}\label{summary}
+\begin{itemize}
+\tightlist
+\item
+  Suppose the causal parameter of interest is the average treatment
+  effect between always treated and never treated,
+\end{itemize}
 
-We have displayed various tooltips that are available in the package \pkg{ToOoOlTiPs}.
+\[
+ATE = E(Y \mid Z_1 = 1, Z_2 = 1) - E(Y \mid Z_1 = 0, Z_2 = 0)
+\]
+
+\begin{itemize}
+\tightlist
+\item
+  Usage of functions on the simulated dataset:
+\end{itemize}
+
+\begin{verbatim}
+#>  num [1:1000] 1.257 1.114 1.022 0.85 0.806 ...
+\end{verbatim}
+
+\begin{verbatim}
+#> List of 6
+#>  $ RD_mean    : num -3.16
+#>  $ RD_sd      : num 0.0947
+#>  $ RD_quantile: Named num [1:2] -3.34 -2.99
+#>   ..- attr(*, "names")= chr [1:2] "2.5%" "97.5%"
+#>  $ bootdata   :'data.frame': 1000 obs. of  3 variables:
+#>   ..$ effect_reference : num [1:1000] 2.36 2.29 2.26 2.34 2.31 ...
+#>   ..$ effect_comparator: num [1:1000] -0.947 -0.824 -0.757 -0.797 -0.765 ...
+#>   ..$ RD               : num [1:1000] -3.31 -3.11 -3.02 -3.13 -3.08 ...
+#>  $ reference  : num [1:2] 0 0
+#>  $ comparator : num [1:2] 1 1
+\end{verbatim}
+
+\section{Discussion}\label{discussion}
 
 \section*{References}\label{references}
 \addcontentsline{toc}{section}{References}
 
 \phantomsection\label{refs}
 \begin{CSLReferences}{1}{0}
+\bibitem[\citeproctext]{ref-arjas2012causal}
+Arjas, E. 2012. \emph{Causal Inference from Observational Data: A Bayesian Predictive Approach}. Wiley Online Library. \url{https://onlinelibrary.wiley.com/doi/abs/10.1002/9781119945710.ch7}.
+
+\bibitem[\citeproctext]{ref-dawid2010identifying}
+Dawid, AP, V Didelez, et al. 2010. {``Identifying the Consequences of Dynamic Treatment Strategies: A Decision-Theoretic Overview.''} \emph{Statistical Surveys} 4: 184--231.
+
+\bibitem[\citeproctext]{ref-hernanRobins2016}
+Hernán, MA, and JM Robins. 2016. {``Using Big Data to Emulate a Target Trial When a Randomized Trial Is Not Available.''} \emph{American Journal of Epidemiology} 183 (8): 758--64.
+
+\bibitem[\citeproctext]{ref-liuRepeatedlyMeasured}
+Liu, K. et al. 2020. {``Estimation of Causal Effects with Repeatedly Measured Outcomes in a Bayesian Framework.''} \emph{Statistical Methods in Medical Research}.
+
 \bibitem[\citeproctext]{ref-liuBayesianCausal}
 Liu, K. 2021. {``Bayesian Causal Inference with Longitudinal Data.''}
+
+\bibitem[\citeproctext]{ref-robinsMarginalStructural}
+Robins, J. et al. 2000. {``Marginal Structural Models and Causal Inference in Epidemiology.''}
+
+\bibitem[\citeproctext]{ref-roysland2011martingale}
+Røysland, K et al. 2011. {``A Martingale Approach to Continuous-Time Marginal Structural Models.''} \emph{Bernoulli} 17 (3): 895--915.
+
+\bibitem[\citeproctext]{ref-saarelaBayesianEstimation}
+Saarela, O. et al. 2015. {``On Bayesian Estimation of Marginal Structural Models.''}
 
 \end{CSLReferences}
 
@@ -80,6 +473,6 @@ Dalla Lana School of Public Health, University of Toronto\\%
 Department of Biostatistics, Toronto, Canada\\ Institute of Health Policy, Management and Evaluation, Toronto, Canada\\
 %
 \url{https://www.kuan-liu.com/}\\%
-\textit{ORCiD: \href{https://orcid.org/0000-0002-0912-0225 (?)}{0000-0002-0912-0225 (?)}}\\%
+\textit{ORCiD: \href{https://orcid.org/0000-0002-5017-1276}{0000-0002-5017-1276}}\\%
 \href{mailto:kuan.liu@utoronto.ca}{\nolinkurl{kuan.liu@utoronto.ca}}%
 }
