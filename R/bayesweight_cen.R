@@ -108,8 +108,8 @@ bayesweight_cen <- function(trtmodel.list = list(A1 ~ L11 + L21,
                        C2 ~ L11 + L21 + A1,
                        C3 ~ L11 + L21 + A1 + L12 + L22 + A2)
   data = simdat_cen
-  n.iter = 250
-  n.burnin = 50
+  n.iter = 25000
+  n.burnin = 15000
   n.thin = 5
   parallel = TRUE
   n.chains = 2
@@ -327,11 +327,12 @@ bayesweight_cen <- function(trtmodel.list = list(A1 ~ L11 + L21,
     for (v in seq_along(variable_info_trt)) {
       response_trt <- variable_info_trt[[v]]$response
       jags.data[[paste0("N", v)]] <- sum(!is.na(data[[response_trt]]))
+      jags.data[[paste0("A", v, "s")]] <- data[[paste0("A", v)]][!is.na(data[[paste0("A", v)]])] # Remove the NAs
+      jags.data[[paste0("C", v, "s")]] <- data[[paste0("C", v)]][!is.na(data[[paste0("C", v)]])]
     }
 
     return(jags.data)
   }
-
 
   jags.data <- prepare_jags_data(data, trtmodel.list, cenmodel.list)
   jags.params <- write_jags_model(trtmodel.list, cenmodel.list)
@@ -400,9 +401,10 @@ bayesweight_cen <- function(trtmodel.list = list(A1 ~ L11 + L21,
   n_visits <- length(trtmodel)
   n_posterior <- dim(posterior)[1]
   # Calculate the number of observations for the last visit (i.e. complete data; in this case N3)
-  last_visit_response <- trtmodel[[n_visits]]$response
-  non_missing_indices <- which(!is.na(data[[last_visit_response]]))
-  n_obs <- length(non_missing_indices)
+  # last_visit_response <- trtmodel[[n_visits]]$response
+  # non_missing_indices <- which(!is.na(data[[last_visit_response]]))
+  # n_obs <- length(non_missing_indices)
+  n_obs <- dim(data)[1]
 
   psc <- array(dim = c(n_visits, n_posterior, n_obs))
   psm <- array(dim = c(n_visits, n_posterior, n_obs))
@@ -412,190 +414,51 @@ bayesweight_cen <- function(trtmodel.list = list(A1 ~ L11 + L21,
   # Calculate probabilities for each visit
   parameter_map <- colnames(posterior)
 
-  # Diagnostics
-  # psc <- vector("list", n_visits)
-  # psm <- vector("list", n_visits)
-  # csc <- vector("list", n_visits)
-  # csm <- vector("list", n_visits)
-  #
-  # parameter_map <- colnames(posterior)
-  #
-  # for (nvisit in 1:n_visits) {
-  #   predictors_c <- trtmodel[[nvisit]]$predictors
-  #   predictors_s <- trtmodel[[nvisit]]$predictors
-  #   predictors_cen <- cenmodel[[nvisit]]$predictors
-  #
-  #   non_missing_indices <- which(!is.na(data[[trtmodel[[nvisit]]$response]]))
-  #
-  #   design_matrix_c <- cbind(1, data[non_missing_indices, predictors_c, drop = FALSE])
-  #   design_matrix_s <- cbind(1, data[non_missing_indices, predictors_s, drop = FALSE])
-  #   design_matrix_cen <- cbind(1, data[non_missing_indices, predictors_cen, drop = FALSE])
-  #
-  #   beta_indices_c <- match(c(sprintf("b%d0", nvisit),
-  #                             sapply(1:length(predictors_c), function(p) sprintf("b%d%d", nvisit, p))),
-  #                           parameter_map)
-  #
-  #   beta_indices_s <- match(c(sprintf("bs%d0", nvisit),
-  #                             if (nvisit > 1) sprintf("bs%d1", nvisit) else NULL),
-  #                           parameter_map)
-  #
-  #   beta_indices_cen <- match(c(sprintf("s%d0", nvisit),
-  #                               sapply(1:length(predictors_cen), function(p) sprintf("s%d%d", nvisit, p))),
-  #                             parameter_map)
-  #
-  #   beta_indices_cen_s <- match(c(sprintf("ts%d0", nvisit),
-  #                                 if (nvisit > 1) sprintf("ts%d1", nvisit) else NULL),
-  #                               parameter_map)
-  #
-  #   cat(sprintf("\nVisit: %d\n", nvisit))
-  #   cat("Predictors (PSC, PSM, CSC, CSM):\n")
-  #   print(predictors_c)
-  #   print(predictors_s)
-  #   print(predictors_cen)
-  #   cat("Beta Indices (PSC, PSM, CSC, CSM):\n")
-  #   print(beta_indices_c)
-  #   print(beta_indices_s)
-  #   print(beta_indices_cen)
-  #   print(beta_indices_cen_s)
-  #
-  #   for (j in 1:n_posterior) {
-  #     if (j <= 5) { # Only print the first 5 rows for diagnostic output
-  #       cat(sprintf("\nVisit: %d, Posterior: %d\n", nvisit, j))
-  #       cat("PSC Calculation:\n")
-  #       print("Posterior Parameters:")
-  #       print(posterior[j, beta_indices_c, drop = FALSE])
-  #       print("Design Matrix:")
-  #       print(head(design_matrix_c, 5))
-  #       cat("Lengths: Posterior Parameters:", length(beta_indices_c), "Design Matrix Columns:", ncol(design_matrix_c), "\n")
-  #       if (length(beta_indices_c) == ncol(design_matrix_c)) {
-  #         if (is.null(psc[[nvisit]])) {
-  #           psc[[nvisit]] <- array(dim = c(n_posterior, nrow(design_matrix_c)))
-  #         }
-  #         psc[[nvisit]][j, ] <- expit(posterior[j, beta_indices_c, drop = FALSE] %*% t(design_matrix_c))
-  #       } else {
-  #         cat("Dimension mismatch in PSC calculation\n")
-  #       }
-  #
-  #       cat("PSM Calculation:\n")
-  #       print("Posterior Parameters:")
-  #       print(posterior[j, beta_indices_s, drop = FALSE])
-  #       print("Design Matrix:")
-  #       print(head(design_matrix_s, 5))
-  #       cat("Lengths: Posterior Parameters:", length(beta_indices_s), "Design Matrix Columns:", ncol(design_matrix_s), "\n")
-  #       if (length(beta_indices_s) == ncol(design_matrix_s)) {
-  #         if (is.null(psm[[nvisit]])) {
-  #           psm[[nvisit]] <- array(dim = c(n_posterior, nrow(design_matrix_s)))
-  #         }
-  #         psm[[nvisit]][j, ] <- expit(posterior[j, beta_indices_s, drop = FALSE] %*% t(design_matrix_s))
-  #       } else {
-  #         cat("Dimension mismatch in PSM calculation\n")
-  #       }
-  #
-  #       cat("CSC Calculation:\n")
-  #       print("Posterior Parameters:")
-  #       print(posterior[j, beta_indices_cen, drop = FALSE])
-  #       print("Design Matrix:")
-  #       print(head(design_matrix_cen, 5))
-  #       cat("Lengths: Posterior Parameters:", length(beta_indices_cen), "Design Matrix Columns:", ncol(design_matrix_cen), "\n")
-  #       if (length(beta_indices_cen) == ncol(design_matrix_cen)) {
-  #         if (is.null(csc[[nvisit]])) {
-  #           csc[[nvisit]] <- array(dim = c(n_posterior, nrow(design_matrix_cen)))
-  #         }
-  #         csc[[nvisit]][j, ] <- expit(posterior[j, beta_indices_cen, drop = FALSE] %*% t(design_matrix_cen))
-  #       } else {
-  #         cat("Dimension mismatch in CSC calculation\n")
-  #       }
-  #
-  #       cat("CSM Calculation:\n")
-  #       print("Posterior Parameters:")
-  #       print(posterior[j, beta_indices_cen_s, drop = FALSE])
-  #       print("Design Matrix:")
-  #       print(head(design_matrix_cen, 5))
-  #       cat("Lengths: Posterior Parameters:", length(beta_indices_cen_s), "Design Matrix Columns:", ncol(design_matrix_cen), "\n")
-  #       if (length(beta_indices_cen_s) == ncol(design_matrix_cen)) {
-  #         if (is.null(csm[[nvisit]])) {
-  #           csm[[nvisit]] <- array(dim = c(n_posterior, nrow(design_matrix_cen)))
-  #         }
-  #         csm[[nvisit]][j, ] <- expit(posterior[j, beta_indices_cen_s, drop = FALSE] %*% t(design_matrix_cen))
-  #       } else {
-  #         cat("Dimension mismatch in CSM calculation\n")
-  #       }
-  #     }
-  #   }
-  #
-  #   # Diagnostics for ensuring arrays are correctly populated
-  #   if (is.null(psc[[nvisit]])) {
-  #     cat(sprintf("PSC array for visit %d was not created.\n", nvisit))
-  #   }
-  #   if (is.null(psm[[nvisit]])) {
-  #     cat(sprintf("PSM array for visit %d was not created.\n", nvisit))
-  #   }
-  #   if (is.null(csc[[nvisit]])) {
-  #     cat(sprintf("CSC array for visit %d was not created.\n", nvisit))
-  #   }
-  #   if (is.null(csm[[nvisit]])) {
-  #     cat(sprintf("CSM array for visit %d was not created.\n", nvisit))
-  #   }
-  # }
-  #
-  # if (length(psm) > 0 && length(psc) > 0 && length(csm) > 0 && length(csc) > 0) {
-  #   numerator_trt <- apply(simplify2array(psm), c(2, 3), prod)
-  #   denominator_trt <- apply(simplify2array(psc), c(2, 3), prod)
-  #   numerator_cen <- apply(simplify2array(csm), c(2, 3), prod)
-  #   denominator_cen <- apply(simplify2array(csc), c(2, 3), prod)
-  # } else {
-  #   stop("One or more necessary arrays were not created.")
-  # }
-  #
-  # numerator_trt_weight <- rowMeans(numerator_trt / denominator_trt)
-  # numerator_cen_weight <- rowMeans(numerator_cen / denominator_cen)
-  #
-  # w <- numerator_trt_weight / numerator_cen_weight
-  # return(w)
-
-  # Idea:
-  # for ( nvisit in 1:length(trtmodel)){
-  #   #treatment probability by visit;
-  #   # dim( expit(posterior[,1:(1+length(trtmodel[[nvisit]]$predictors))] %*% t(cbind(1,data[,c(trtmodel[[1]]$predictors)]))))
-  #   # dim(n_posterior, dim(data)[1])
-  #   psc[nvisit, , ] <- expit(posterior[,1:(1+length(trtmodel[[nvisit]]$predictors))] %*% t(cbind(1,data[,c(trtmodel[[1]]$predictors)])))
-  #   psm[nvisit, , ] <- expit(posterior[,1:(1+length(trtmodel_s[[nvisit]]$predictors))] %*% t(cbind(1,data[,c(trtmodel_s[[1]]$predictors)])))
-  #   csc[nvisit, , ] <- expit(posterior[,1:(1+length(cenmodel[[nvisit]]$predictors))] %*% t(cbind(1,data[,c(cenmodel[[1]]$predictors)])))
-  #   csm[nvisit, , ] <- expit(posterior[,1:(1+length(cenmodel_s[[nvisit]]$predictors))] %*% t(cbind(1,data[,c(cenmodel_s[[1]]$predictors)])))
-  # }
-
-  for (nvisit in 1<n_visits) {
+  for (nvisit in 1:n_visits) {
     predictors_c <- trtmodel[[nvisit]]$predictors
     predictors_s <- trtmodel_s[[nvisit]]$predictors
     predictors_cen_c <- cenmodel[[nvisit]]$predictors
     predictors_cen_s <- cenmodel_s[[nvisit]]$predictors
 
-    design_matrix_c <- cbind(1, data[non_missing_indices, predictors_c, drop = FALSE])
-    design_matrix_s <- cbind(1, data[non_missing_indices, predictors_s, drop = FALSE])
-    design_matrix_cen_c <- cbind(1, data[non_missing_indices, predictors_cen_c, drop = FALSE])
-    design_matrix_cen_s <- cbind(1, data[non_missing_indices, predictors_cen_s, drop = FALSE])
+    # design_matrix_c <- cbind(1, data[non_missing_indices, predictors_c, drop = FALSE]) # It should deal with the whole dataset! not just complete data
+    # design_matrix_s <- cbind(1, data[non_missing_indices, predictors_s, drop = FALSE])
+    # design_matrix_cen_c <- cbind(1, data[non_missing_indices, predictors_cen_c, drop = FALSE])
+    # design_matrix_cen_s <- cbind(1, data[non_missing_indices, predictors_cen_s, drop = FALSE])
+
+    design_matrix_c <- cbind(1, data[predictors_c]) # It should deal with the whole dataset! not just complete data
+    design_matrix_s <- cbind(1, data[predictors_s])
+    design_matrix_cen_c <- cbind(1, data[predictors_cen_c])
+    design_matrix_cen_s <- cbind(1, data[predictors_cen_s])
 
     beta_indices_c <- match(c(sprintf("b%d0", nvisit),
                               sapply(1:length(predictors_c), function(p) sprintf("b%d%d", nvisit, p))),
                             parameter_map)  #> beta_indices_c [1] 1 2 3
 
+    # beta_indices_s <- match(c(sprintf("bs%d0", nvisit),
+    #                           if (nvisit > 1) sprintf(paste0("bs%d", "1"), nvisit) ... sprintf(paste0("bs%d", nvisit-1), nvisit) else NULL),
+    #                         parameter_map)  #> beta_indices_s [1] 19
+
     beta_indices_s <- match(c(sprintf("bs%d0", nvisit),
-                              if (nvisit > 1) sprintf("bs%d1", nvisit) else NULL),
-                            parameter_map)  #> beta_indices_s [1] 19
+                              if (nvisit > 1) sapply(1:length(predictors_s), function(p) sprintf("bs%d%d", nvisit, p)) else NULL),
+                            parameter_map)
 
     beta_indices_cen_c <- match(c(sprintf("s%d0", nvisit),
                                 sapply(1:length(predictors_cen_c), function(p) sprintf("s%d%d", nvisit, p))),
                               parameter_map)  #> beta_indices_cen_c [1] 26 27 28
 
+    # beta_indices_cen_s <- match(c(sprintf("ts%d0", nvisit),
+    #                               if (nvisit > 1) sprintf("ts%d1", nvisit) else NULL),
+    #                             parameter_map)  #> beta_indices_cen_s [1] 40
+
     beta_indices_cen_s <- match(c(sprintf("ts%d0", nvisit),
-                                  if (nvisit > 1) sprintf("ts%d1", nvisit) else NULL),
-                                parameter_map)  #> beta_indices_cen_s [1] 40
+                                  if (nvisit > 1) sapply(1:length(predictors_cen_s), function(p) sprintf("ts%d%d", nvisit, p)) else NULL),
+                                parameter_map)
 
     for (j in 1:n_posterior) {
-      psc[nvisit, j, ] <- expit(posterior[j, beta_indices_c] %*% t(design_matrix_c)) # Dimension: 40x3 %*% 3x364 (nvisit=1, j=1)
-      psm[nvisit, j, ] <- expit(posterior[j, beta_indices_s] %*% t(design_matrix_s)) # Dimension: 40x1 %*% 1x364
-      csc[nvisit, j, ] <- expit(posterior[j, beta_indices_cen_c] %*% t(design_matrix_cen_c)) # Dimension: 40x3 %*% 3x364
-      csm[nvisit, j, ] <- expit(posterior[j, beta_indices_cen_s] %*% t(design_matrix_cen_s)) # Dimension: 40x1 %*% 1x364
+      psc[nvisit, j, ] <- expit(posterior[j, beta_indices_c] %*% t(design_matrix_c)) # Dimension: 40x3 %*% 3x364 3x500 (nvisit=1, j=1)
+      psm[nvisit, j, ] <- expit(posterior[j, beta_indices_s] %*% t(design_matrix_s)) # Dimension: 40x1 %*% 1x364 1x500
+      csc[nvisit, j, ] <- expit(posterior[j, beta_indices_cen_c] %*% t(design_matrix_cen_c)) # Dimension: 40x3 %*% 3x364 3x500
+      csm[nvisit, j, ] <- expit(posterior[j, beta_indices_cen_s] %*% t(design_matrix_cen_s)) # Dimension: 40x1 %*% 1x364 1x500
     }
   }
 
@@ -604,12 +467,13 @@ bayesweight_cen <- function(trtmodel.list = list(A1 ~ L11 + L21,
   numerator_cen <- apply(csm, c(2, 3), prod)
   denominator_cen <- apply(csc, c(2, 3), prod)
 
-  weights <- (numerator_trt * numerator_cen) / (denominator_trt * denominator_cen)
+  weights <- (numerator_trt / denominator_trt) * (numerator_cen / denominator_cen)
   wmean <- colMeans(weights)
 
   return(wmean)
-  # > str(wmean)
-  # num [1:364] 478 460 757 971 523 ...
+ #  > summary(wmean)
+ #  Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's
+ # 0.3037  0.9072  1.5633  2.3929  3.0790 34.6315     136
 
 }
 
@@ -707,3 +571,97 @@ weights <- bayesweight_cen(trtmodel.list = list(A1 ~ L11 + L21,
 Sys.time()-start
 weights
 
+
+
+
+######################################################################
+
+# Calculating frequentist weights R code;
+
+psc1m <- glm(A1 ~ L11 + L21, family = binomial(link = "logit") , data = simdat_cen)
+
+psc2m <- glm(A2 ~ L11 + L21 + L12 + L22 + A1, family = binomial(link = "logit") , data = simdat_cen)
+
+psc3m <- glm(A3 ~ L11 + L21 + L12 + L22 + A1 + L13 + L23 + A2, family = binomial(link = "logit") , data = simdat_cen)
+
+psc1 <- predict(psc1m, newdata = simdat_cen, type="response")
+
+psc2 <- predict(psc2m, newdata = simdat_cen, type="response")
+
+psc3 <- predict(psc3m, newdata = simdat_cen, type="response")
+
+
+
+psm1m <- glm(A1 ~ 1, family = binomial(link = "logit") , data = simdat_cen)
+
+psm2m <- glm(A2 ~ A1, family = binomial(link = "logit") , data = simdat_cen)
+
+psm3m <- glm(A3 ~ A1 + A2, family = binomial(link = "logit") , data = simdat_cen)
+
+psm1 <- predict(psm1m, newdata = simdat_cen, type="response")
+
+psm2 <- predict(psm2m, newdata = simdat_cen, type="response")
+
+psm3 <- predict(psm3m, newdata = simdat_cen, type="response")
+
+
+
+weight_trt1 <- (psm1/psc1)
+
+weight_trt2 <- (psm2/psc2)
+
+weight_trt3 <- (psm3/psc3)
+
+
+
+weight_trt<- weight_trt1*weight_trt2*weight_trt3
+
+
+
+csc1m <- glm(C1 ~ L11 + L21, family = binomial(link = "logit") , data = simdat_cen)
+
+csc2m <- glm(C2 ~ L11 + L21 + A1, family = binomial(link = "logit") , data = simdat_cen)
+
+csc3m <- glm(C3 ~ L11 + L21 + L12 + L22 + A1 + A2, family = binomial(link = "logit") , data = simdat_cen)
+
+csc1 <- predict(csc1m, newdata = simdat_cen, type="response")
+
+csc2 <- predict(csc2m, newdata = simdat_cen, type="response")
+
+csc3 <- predict(csc3m, newdata = simdat_cen, type="response")
+
+
+
+csm1m <- glm(C1 ~ 1, family = binomial(link = "logit") , data = simdat_cen)
+
+csm2m <- glm(C2 ~ A1, family = binomial(link = "logit") , data = simdat_cen)
+
+csm3m <- glm(C3 ~ A1 + A2, family = binomial(link = "logit") , data = simdat_cen)
+
+csm1 <- predict(csm1m, newdata = simdat_cen, type="response")
+
+csm2 <- predict(csm2m, newdata = simdat_cen, type="response")
+
+csm3 <- predict(csm3m, newdata = simdat_cen, type="response")
+
+
+
+weight_cen1 <- (csm1/csc1)
+
+weight_cen2 <- (csm2/csc2)
+
+weight_cen3 <- (csm3/csc3)
+
+
+
+weight_cen <- weight_cen1*weight_cen2*weight_cen3
+
+
+
+weight_freq <- weight_trt*weight_cen
+
+summary(weight_freq)
+
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's
+
+#  0.2356  0.8193  1.1823  1.5666  1.9554 13.8196     136
