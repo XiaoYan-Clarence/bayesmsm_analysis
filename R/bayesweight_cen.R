@@ -111,8 +111,8 @@ bayesweight_cen <- function(trtmodel.list = list(A1 ~ L11 + L21,
   n.iter = 25000
   n.burnin = 15000
   n.thin = 5
-  parallel = TRUE
-  n.chains = 2
+  parallel = FALSE
+  n.chains = 1
   seed = 890123
 
 

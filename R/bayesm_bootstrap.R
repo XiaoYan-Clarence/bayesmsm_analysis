@@ -42,6 +42,20 @@ bayesmsm <- function(ymodel = y ~ a_1*a_2*a_3*a_4,
   # parallel = TRUE;
   # ncore = 4
 
+  ymodel = Y ~ A1+A2+A3
+  nvisit = 3
+  reference = c(rep(0, 3))
+  comparator = c(rep(1, 3))
+  family = "binomial"
+  data = simdat_cen
+  wmean = wmean
+  nboot = 500
+  optim_method = "BFGS"
+  parallel = FALSE
+  seed = 890123
+  ncore = 1
+
+
   # Global option
   options(max.print = 100)
 
@@ -647,4 +661,16 @@ APO_11 / APO_00
 # expit(APO_11) / expit(APO_00)
 # (expit(APO_11) / (1 - expit(APO_11))) / (expit(APO_00) / (1 - expit(APO_00)))
 
-
+# Right-censoring:
+model <- bayesmsm(ymodel = Y ~ A1+A2+A3,
+                  nvisit = 3,
+                  reference = c(rep(0, 3)),
+                  comparator = c(rep(1, 3)),
+                  family = "binomial",
+                  data = simdat_cen,
+                  wmean = wmean,
+                  nboot = 1000,
+                  optim_method = "BFGS",
+                  parallel = FALSE,
+                  seed = 890123,
+                  ncore = 1)
