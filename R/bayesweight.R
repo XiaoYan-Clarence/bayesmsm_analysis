@@ -533,8 +533,8 @@ start<-Sys.time()
 weights2 <- bayesweight(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
                                              a_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + a_1),
                         data = testdata2,
-                        n.iter = 250,
-                        n.burnin = 50,
+                        n.iter = 25000,
+                        n.burnin = 15000,
                         n.thin = 5,
                         n.chains = 2,
                         seed = 890123,
@@ -557,8 +557,11 @@ start<-Sys.time()
 weights3 <- bayesweight(trtmodel.list = list(a_1 ~ w1 + w2 + L1_1 + L2_1,
                                              a_2 ~ w1 + w2 + L1_1 + L2_1 + L1_2 + L2_2 + a_1),
                         data = testdata3,
-                        n.iter = 250,
-                        n.burnin = 50,
-                        n.thin = 5)
+                        n.iter = 25000,
+                        n.burnin = 15000,
+                        n.thin = 5,
+                        n.chains = 2,
+                        seed = 890123,
+                        parallel = TRUE)
 Sys.time()-start
 weights3

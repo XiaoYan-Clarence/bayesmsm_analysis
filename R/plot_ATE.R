@@ -16,7 +16,7 @@ plot_ATE <- function(model,
                      estimand = c("RD", "RR", "OR"),
                      col_density = "blue",
                      fill_density = "lightblue",
-                     main = "Posterior Predictive Distribution of Average Treatment Effect (ATE)",
+                     main = "Posterior Predictive Distribution of ATE",
                      xlab = "ATE", ylab = "Posterior Predictive Distribution",
                      xlim = NULL, ylim = NULL, ...) {
 

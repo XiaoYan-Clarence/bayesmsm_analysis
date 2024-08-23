@@ -584,12 +584,12 @@ model3 <- bayesmsm(ymodel = y ~ a_1+a_2,
                            comparator = c(rep(1,2)),
                            family = "binomial",
                            data = testdata3,
-                           wmean = rep(1, 1000),
+                           wmean = weights2,
                            nboot = 1000,
                            optim_method = "BFGS",
                            # estimand = "OR",
                            seed = 890123,
-                           parallel = FALSE,
+                           parallel = TRUE,
                            ncore = 6)
 Sys.time()-start
 bootoutput3 = model3$bootdata
