@@ -556,6 +556,14 @@ simdat_cen <- simdat %>%
          Y = ifelse(C3==1, NA, Y))
 
 
+# Save simdat_cen to sim_causal.csv
+write.csv(simdat_cen, file = "sim_causal.csv", row.names = FALSE)
+
+
+
+
+
+
 # Censored data
 start<-Sys.time()
 weights <- bayesweight_cen(trtmodel.list = list(A1 ~ L11 + L21,
