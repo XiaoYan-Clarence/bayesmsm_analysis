@@ -557,7 +557,7 @@ simdat_cen <- simdat %>%
 
 
 # Save simdat_cen to sim_causal.csv
-write.csv(simdat_cen, file = "sim_causal.csv", row.names = FALSE)
+write.csv(simdat_cen, file = "sim_causal_1000_obs.csv", row.names = FALSE)
 
 
 

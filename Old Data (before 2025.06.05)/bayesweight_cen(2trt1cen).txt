@@ -1,0 +1,56 @@
+model{
+
+for (i in 1:N1) {
+
+# conditional model;
+a_1[i] ~ dbern(p1[i])
+logit(p1[i]) <- b10 + b11*w1[i] + b12*w2[i] + b13*L1_1[i] + b14*L2_1[i]
+
+# marginal model;
+a_1s[i] ~ dbern(p1s[i])
+logit(p1s[i]) <- bs10
+
+}
+
+for (i in 1:N2) {
+
+# conditional model;
+a_2[i] ~ dbern(p2[i])
+logit(p2[i]) <- b20 + b21*w1[i] + b22*w2[i] + b23*L1_1[i] + b24*L2_1[i] + b25*L1_2[i] + b26*L2_2[i] + b27*a_1[i]
+c[i] ~ dbern(cp2[i])
+logit(cp2[i]) <- s20 + s21*w1[i] + s22*w2[i] + s23*L1_1[i] + s24*L2_1[i] + s25*a_1[i]
+
+# marginal model;
+a_2s[i] ~ dbern(p2s[i])
+logit(p2s[i]) <- bs20 + bs21*a_1s[i]
+cs[i] ~ dbern(cp2s[i])
+logit(cp2s[i]) <- ts20 + ts21*a_1s[i]
+}
+
+# Priors
+b10 ~ dunif(-10, 10)
+b11 ~ dunif(-10, 10)
+b12 ~ dunif(-10, 10)
+b13 ~ dunif(-10, 10)
+b14 ~ dunif(-10, 10)
+bs10 ~ dunif(-10, 10)
+b20 ~ dunif(-10, 10)
+b21 ~ dunif(-10, 10)
+b22 ~ dunif(-10, 10)
+b23 ~ dunif(-10, 10)
+b24 ~ dunif(-10, 10)
+b25 ~ dunif(-10, 10)
+b26 ~ dunif(-10, 10)
+b27 ~ dunif(-10, 10)
+s20 ~ dunif(-10, 10)
+s21 ~ dunif(-10, 10)
+s22 ~ dunif(-10, 10)
+s23 ~ dunif(-10, 10)
+s24 ~ dunif(-10, 10)
+s25 ~ dunif(-10, 10)
+bs20 ~ dunif(-10, 10)
+bs21 ~ dunif(-10, 10)
+ts20 ~ dunif(-10, 10)
+ts21 ~ dunif(-10, 10)
+}
+
